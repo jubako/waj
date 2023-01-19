@@ -86,7 +86,7 @@ impl Entry {
 pub struct Creator {
     content_pack: jbk::creator::ContentPackCreator,
     directory_pack: jbk::creator::DirectoryPackCreator,
-    entry_store_id: jbk::EntryStoreIdx,
+    entry_store: Box<jbk::creator::EntryStore<jbk::creator::BasicEntry>>,
     entry_count: jbk::EntryCount,
 }
 
@@ -139,22 +139,23 @@ impl Creator {
             ],
         );
 
-        let entry_store_id = directory_pack.create_entry_store(entry_def);
+        let entry_store = Box::new(jbk::creator::EntryStore::new(entry_def));
 
         Self {
             content_pack,
             directory_pack,
-            entry_store_id,
+            entry_store,
             entry_count: 0.into(),
         }
     }
 
     fn finalize(mut self, outfile: PathBuf) -> jbk::Result<()> {
+        let entry_store_id = self.directory_pack.add_entry_store(self.entry_store);
         self.directory_pack.create_index(
             "entries",
             jubako::ContentAddress::new(0.into(), 0.into()),
             jbk::PropertyIdx::from(0),
-            self.entry_store_id,
+            entry_store_id,
             self.entry_count,
             jubako::EntryIdx::from(0),
         );
@@ -188,11 +189,12 @@ impl Creator {
         let mut entry_path = entry.path.clone().into_os_string().into_vec();
         entry_path.truncate(255);
         let entry_path = jbk::creator::Value::Array(entry_path);
-        match entry.kind {
+        let entry = match entry.kind {
             EntryKind::Dir => {
                 for sub_entry in fs::read_dir(&entry.path)? {
                     self.handle(Entry::new_from_fs(sub_entry?))?;
                 }
+                None
             }
             EntryKind::File => {
                 let file = fs::File::open(&entry.path)?;
@@ -218,9 +220,8 @@ impl Creator {
                 file.reset();
                 let content_id = self.content_pack.add_content(&mut file)?;
 
-                let entry_store = self.directory_pack.get_entry_store(self.entry_store_id);
-                entry_store.add_entry(
-                    Some(0),
+                Some(jbk::creator::BasicEntry::new(
+                    Some(0.into()),
                     vec![
                         entry_path,
                         jbk::creator::Value::Array(mime_type.to_string().into()),
@@ -229,20 +230,21 @@ impl Creator {
                             content_id,
                         )),
                     ],
-                );
-                self.entry_count += 1;
+                ))
             }
             EntryKind::Link => {
                 let mut target = fs::read_link(&entry.path)?.into_os_string().into_vec();
                 target.truncate(255);
-                let entry_store = self.directory_pack.get_entry_store(self.entry_store_id);
-                entry_store.add_entry(
-                    Some(1),
+                Some(jbk::creator::BasicEntry::new(
+                    Some(1.into()),
                     vec![entry_path, jbk::creator::Value::Array(target)],
-                );
-                self.entry_count += 1;
+                ))
             }
             EntryKind::Other => unreachable!(),
+        };
+        if let Some(e) = entry {
+            self.entry_store.add_entry(e);
+            self.entry_count += 1;
         }
         Ok(())
     }
