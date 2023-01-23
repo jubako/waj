@@ -1,6 +1,6 @@
 use jubako as jbk;
 
-use jbk::creator::layout;
+use jbk::creator::schema;
 use mime_guess::mime;
 use std::ffi::OsString;
 use std::fs;
@@ -121,25 +121,25 @@ impl Creator {
         let path_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Plain);
         let mime_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Indexed);
 
-        let entry_def = layout::Entry::new(
+        let schema = schema::Schema::new(
             // Common part
-            layout::CommonProperties::new(vec![
-                layout::Property::VLArray(1, Rc::clone(&path_store)), // the path
+            schema::CommonProperties::new(vec![
+                schema::Property::VLArray(1, Rc::clone(&path_store)), // the path
             ]),
             vec![
                 // Content
-                layout::VariantProperties::new(vec![
-                    layout::Property::VLArray(0, Rc::clone(&mime_store)), // the mimetype
-                    layout::Property::ContentAddress,
+                schema::VariantProperties::new(vec![
+                    schema::Property::VLArray(0, Rc::clone(&mime_store)), // the mimetype
+                    schema::Property::ContentAddress,
                 ]),
                 // Redirect
-                layout::VariantProperties::new(vec![
-                    layout::Property::VLArray(0, Rc::clone(&path_store)), // Id of the linked entry
+                schema::VariantProperties::new(vec![
+                    schema::Property::VLArray(0, Rc::clone(&path_store)), // Id of the linked entry
                 ]),
             ],
         );
 
-        let entry_store = Box::new(jbk::creator::EntryStore::new(entry_def));
+        let entry_store = Box::new(jbk::creator::EntryStore::new(schema));
 
         Self {
             content_pack,
@@ -221,6 +221,7 @@ impl Creator {
                 let content_id = self.content_pack.add_content(&mut file)?;
 
                 Some(jbk::creator::BasicEntry::new(
+                    &self.entry_store.schema,
                     Some(0.into()),
                     vec![
                         entry_path,
@@ -236,6 +237,7 @@ impl Creator {
                 let mut target = fs::read_link(&entry.path)?.into_os_string().into_vec();
                 target.truncate(255);
                 Some(jbk::creator::BasicEntry::new(
+                    &self.entry_store.schema,
                     Some(1.into()),
                     vec![entry_path, jbk::creator::Value::Array(target)],
                 ))
