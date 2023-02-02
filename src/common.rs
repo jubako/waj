@@ -10,6 +10,14 @@ pub enum Entry {
     Redirect(RedirectEntry),
 }
 
+impl Entry {
+    pub fn path(&self) -> jbk::Result<String> {
+        match self {
+            Self::Content(e) => e.path(),
+            Self::Redirect(e) => e.path(),
+        }
+    }
+}
 pub struct ContentEntry {
     path: jbk::reader::Array,
     mimetype: jbk::reader::Array,
@@ -18,6 +26,12 @@ pub struct ContentEntry {
 }
 
 impl ContentEntry {
+    pub fn path(&self) -> jbk::Result<String> {
+        let mut path = Vec::with_capacity(125);
+        self.resolver.resolve_array_to_vec(&self.path, &mut path)?;
+        Ok(String::from_utf8(path)?)
+    }
+
     pub fn get_mimetype(&self) -> jbk::Result<String> {
         let mut mimetype = Vec::with_capacity(125);
         self.resolver
@@ -37,6 +51,12 @@ pub struct RedirectEntry {
 }
 
 impl RedirectEntry {
+    pub fn path(&self) -> jbk::Result<String> {
+        let mut path = Vec::with_capacity(125);
+        self.resolver.resolve_array_to_vec(&self.path, &mut path)?;
+        Ok(String::from_utf8(path)?)
+    }
+
     pub fn get_target_link(&self) -> jbk::Result<String> {
         let mut path = Vec::with_capacity(125);
         self.resolver

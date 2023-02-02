@@ -88,10 +88,12 @@ pub struct Creator {
     directory_pack: jbk::creator::DirectoryPackCreator,
     entry_store: Box<jbk::creator::EntryStore<jbk::creator::BasicEntry>>,
     entry_count: jbk::EntryCount,
+    main_entry_path: PathBuf,
+    main_entry_id: jbk::EntryIdx,
 }
 
 impl Creator {
-    pub fn new<P: AsRef<Path>>(outfile: P) -> Self {
+    pub fn new<P: AsRef<Path>>(outfile: P, main_entry: PathBuf) -> Self {
         let outfile = outfile.as_ref();
         let mut outfilename: OsString = outfile.file_name().unwrap().to_os_string();
         outfilename.push(".jimc");
@@ -146,6 +148,8 @@ impl Creator {
             directory_pack,
             entry_store,
             entry_count: 0.into(),
+            main_entry_path: main_entry,
+            main_entry_id: Default::default(),
         }
     }
 
@@ -158,6 +162,14 @@ impl Creator {
             entry_store_id,
             self.entry_count,
             jubako::EntryIdx::from(0),
+        );
+        self.directory_pack.create_index(
+            "main",
+            jubako::ContentAddress::new(0.into(), 0.into()),
+            jbk::PropertyIdx::from(0),
+            entry_store_id,
+            jubako::EntryCount::from(1),
+            self.main_entry_id,
         );
         let directory_pack_info = self.directory_pack.finalize()?;
         let content_pack_info = self.content_pack.finalize()?;
@@ -186,10 +198,12 @@ impl Creator {
         if self.entry_count.into_u32() % 1000 == 0 {
             println!("{} {:?}", self.entry_count, entry);
         }
-        let mut entry_path = entry.path.clone().into_os_string().into_vec();
-        entry_path.truncate(255);
-        let entry_path = jbk::creator::Value::Array(entry_path);
-        let entry = match entry.kind {
+        let entry_path = entry.path.clone();
+
+        let mut value_entry_path = entry.path.clone().into_os_string().into_vec();
+        value_entry_path.truncate(255);
+        let value_entry_path = jbk::creator::Value::Array(value_entry_path);
+        let new_entry = match entry.kind {
             EntryKind::Dir => {
                 for sub_entry in fs::read_dir(&entry.path)? {
                     self.handle(Entry::new_from_fs(sub_entry?))?;
@@ -197,16 +211,15 @@ impl Creator {
                 None
             }
             EntryKind::File => {
-                let file = fs::File::open(&entry.path)?;
-                let mut file =
-                    jbk::creator::Stream::new(jbk::creator::FileSource::new(file), jbk::End::None);
+                let file = jbk::Reader::from(jbk::creator::FileSource::open(&entry.path)?);
 
                 let mime_type = match mime_guess::from_path(entry.path).first() {
                     Some(m) => m,
                     None => {
                         let mut buf = [0u8; 100];
                         let size = std::cmp::min(100, file.size().into_usize());
-                        file.read_exact(&mut buf[..size])?;
+                        file.create_stream_to(jbk::End::new_size(size))
+                            .read_exact(&mut buf[..size])?;
                         (|| {
                             for window in buf[..size].windows(4) {
                                 if window == b"html" {
@@ -217,14 +230,13 @@ impl Creator {
                         })()
                     }
                 };
-                file.reset();
-                let content_id = self.content_pack.add_content(&mut file)?;
+                let content_id = self.content_pack.add_content(file)?;
 
-                Some(jbk::creator::BasicEntry::new(
+                Some(jbk::creator::BasicEntry::new_from_schema(
                     &self.entry_store.schema,
                     Some(0.into()),
                     vec![
-                        entry_path,
+                        value_entry_path,
                         jbk::creator::Value::Array(mime_type.to_string().into()),
                         jbk::creator::Value::Content(jbk::ContentAddress::new(
                             jbk::PackId::from(1),
@@ -236,15 +248,18 @@ impl Creator {
             EntryKind::Link => {
                 let mut target = fs::read_link(&entry.path)?.into_os_string().into_vec();
                 target.truncate(255);
-                Some(jbk::creator::BasicEntry::new(
+                Some(jbk::creator::BasicEntry::new_from_schema(
                     &self.entry_store.schema,
                     Some(1.into()),
-                    vec![entry_path, jbk::creator::Value::Array(target)],
+                    vec![value_entry_path, jbk::creator::Value::Array(target)],
                 ))
             }
             EntryKind::Other => unreachable!(),
         };
-        if let Some(e) = entry {
+        if let Some(e) = new_entry {
+            if entry_path == self.main_entry_path {
+                self.main_entry_id = self.entry_count.into_u32().into();
+            }
             self.entry_store.add_entry(e);
             self.entry_count += 1;
         }

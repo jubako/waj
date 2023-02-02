@@ -33,6 +33,9 @@ struct Create {
     // Archive name to create
     #[clap(short, long, value_parser)]
     outfile: PathBuf,
+
+    #[clap(short, long, value_parser)]
+    main_entry: PathBuf,
 }
 
 #[derive(Args)]
@@ -42,34 +45,31 @@ struct Serve {
 
     #[clap(value_parser)]
     address: String,
-
-    #[clap(value_parser)]
-    port: u16,
 }
 
 fn main() -> jbk::Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Create(create_cmd) => {
+        Commands::Create(cmd) => {
             if args.verbose > 0 {
-                println!("Creating archive {:?}", create_cmd.outfile);
-                println!("With files {:?}", create_cmd.infiles);
+                println!("Creating archive {:?}", cmd.outfile);
+                println!("With files {:?}", cmd.infiles);
             }
 
-            let creator = Creator::new(&create_cmd.outfile);
-            creator.run(create_cmd.outfile, create_cmd.infiles)
+            let creator = Creator::new(&cmd.outfile, cmd.main_entry);
+            creator.run(cmd.outfile, cmd.infiles)
         }
 
         Commands::Serve(serve_cmd) => {
             if args.verbose > 0 {
                 println!(
-                    "Serve archive {:?} at {:?}:{}",
-                    serve_cmd.infile, serve_cmd.address, serve_cmd.port
+                    "Serve archive {:?} at {:?}",
+                    serve_cmd.infile, serve_cmd.address,
                 );
             }
-
-            jim::serve(serve_cmd.infile, &serve_cmd.address, serve_cmd.port)
+            let server = jim::Server::new(serve_cmd.infile)?;
+            server.serve(&serve_cmd.address)
         }
     }
 }
