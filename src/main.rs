@@ -57,7 +57,7 @@ fn main() -> jbk::Result<()> {
                 println!("With files {:?}", cmd.infiles);
             }
 
-            let creator = Creator::new(&cmd.outfile, cmd.main_entry);
+            let creator = Creator::new(&cmd.outfile, cmd.main_entry)?;
             creator.run(cmd.outfile, cmd.infiles)
         }
 

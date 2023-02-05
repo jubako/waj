@@ -93,7 +93,7 @@ pub struct Creator {
 }
 
 impl Creator {
-    pub fn new<P: AsRef<Path>>(outfile: P, main_entry: PathBuf) -> Self {
+    pub fn new<P: AsRef<Path>>(outfile: P, main_entry: PathBuf) -> jbk::Result<Self> {
         let outfile = outfile.as_ref();
         let mut outfilename: OsString = outfile.file_name().unwrap().to_os_string();
         outfilename.push(".jimc");
@@ -106,7 +106,7 @@ impl Creator {
             VENDOR_ID,
             jbk::FreeData40::clone_from_slice(&[0x00; 40]),
             jbk::CompressionType::Zstd,
-        );
+        )?;
 
         outfilename = outfile.file_name().unwrap().to_os_string();
         outfilename.push(".jimd");
@@ -143,14 +143,14 @@ impl Creator {
 
         let entry_store = Box::new(jbk::creator::EntryStore::new(schema));
 
-        Self {
+        Ok(Self {
             content_pack,
             directory_pack,
             entry_store,
             entry_count: 0.into(),
             main_entry_path: main_entry,
             main_entry_id: Default::default(),
-        }
+        })
     }
 
     fn finalize(mut self, outfile: PathBuf) -> jbk::Result<()> {
@@ -186,7 +186,6 @@ impl Creator {
     }
 
     pub fn run(mut self, outfile: PathBuf, infiles: Vec<PathBuf>) -> jbk::Result<()> {
-        self.content_pack.start()?;
         for infile in infiles {
             let entry = Entry::new(infile)?;
             self.handle(entry)?;
