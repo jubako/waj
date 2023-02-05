@@ -1,7 +1,7 @@
 use jubako as jbk;
 
 use clap::{Args, Parser, Subcommand};
-use jim::Creator;
+use jbk_jim::Creator;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -68,7 +68,7 @@ fn main() -> jbk::Result<()> {
                     serve_cmd.infile, serve_cmd.address,
                 );
             }
-            let server = jim::Server::new(serve_cmd.infile)?;
+            let server = jbk_jim::Server::new(serve_cmd.infile)?;
             server.serve(&serve_cmd.address)
         }
     }

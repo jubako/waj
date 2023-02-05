@@ -17,7 +17,7 @@ fn main() -> ExitCode {
 
     match env::current_exe() {
         Ok(exe_path) => {
-            let server = jim::Server::new(exe_path);
+            let server = jbk_jim::Server::new(exe_path);
             match server {
                 Ok(server) => match server.serve(&args.address) {
                     Ok(()) => ExitCode::SUCCESS,
