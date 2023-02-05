@@ -333,6 +333,7 @@ dependencies = [
 [[package]]
 name = "jubako"
 version = "0.1.0"
+source = "git+https://framagit.org/jubako/jubako.git#9383b535d6629f0030576bb5d0631c9999b6e7d2"
 dependencies = [
  "blake3",
  "clap 3.2.23",
@@ -340,6 +341,7 @@ dependencies = [
  "lru",
  "memmap2",
  "pathdiff",
+ "spmc",
  "typenum",
  "uuid",
  "zstd",
@@ -485,6 +487,12 @@ dependencies = [
  "linux-raw-sys",
  "windows-sys",
 ]
+
+[[package]]
+name = "spmc"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02a8428da277a8e3a15271d79943e80ccc2ef254e78813a166a08d65e4c3ece5"
 
 [[package]]
 name = "strsim"

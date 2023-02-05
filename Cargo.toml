@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.0.32", features = ["derive"] }
-jubako = "0.1.0"
+jubako = { git = "https://framagit.org/jubako/jubako.git" }
 mime_guess = "2.0.4"
 percent-encoding = "2.2.0"
 tiny_http = "0.12.0"
