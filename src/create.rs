@@ -201,7 +201,7 @@ impl Creator {
 
         let mut value_entry_path = entry.path.clone().into_os_string().into_vec();
         value_entry_path.truncate(255);
-        let value_entry_path = jbk::creator::Value::Array(value_entry_path);
+        let value_entry_path = jbk::Value::Array(value_entry_path);
         let new_entry = match entry.kind {
             EntryKind::Dir => {
                 for sub_entry in fs::read_dir(&entry.path)? {
@@ -236,8 +236,8 @@ impl Creator {
                     Some(0.into()),
                     vec![
                         value_entry_path,
-                        jbk::creator::Value::Array(mime_type.to_string().into()),
-                        jbk::creator::Value::Content(jbk::ContentAddress::new(
+                        jbk::Value::Array(mime_type.to_string().into()),
+                        jbk::Value::Content(jbk::ContentAddress::new(
                             jbk::PackId::from(1),
                             content_id,
                         )),
@@ -250,7 +250,7 @@ impl Creator {
                 Some(jbk::creator::BasicEntry::new_from_schema(
                     &self.entry_store.schema,
                     Some(1.into()),
-                    vec![value_entry_path, jbk::creator::Value::Array(target)],
+                    vec![value_entry_path, jbk::Value::Array(target)],
                 ))
             }
             EntryKind::Other => unreachable!(),
