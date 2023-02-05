@@ -156,7 +156,7 @@ impl Creator {
     fn finalize(mut self, outfile: PathBuf) -> jbk::Result<()> {
         let entry_store_id = self.directory_pack.add_entry_store(self.entry_store);
         self.directory_pack.create_index(
-            "entries",
+            "jim_entries",
             jubako::ContentAddress::new(0.into(), 0.into()),
             jbk::PropertyIdx::from(0),
             entry_store_id,
@@ -164,7 +164,7 @@ impl Creator {
             jubako::EntryIdx::from(0),
         );
         self.directory_pack.create_index(
-            "main",
+            "jim_main",
             jubako::ContentAddress::new(0.into(), 0.into()),
             jbk::PropertyIdx::from(0),
             entry_store_id,

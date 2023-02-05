@@ -83,13 +83,13 @@ impl Server {
         let directory = jim.get_directory_pack();
         let value_storage = directory.create_value_storage();
         let entry_storage = directory.create_entry_storage();
-        let index = directory.get_index_from_name("entries")?;
+        let index = directory.get_index_from_name("jim_entries")?;
         let builder = jim
             .schema
             .create_builder(index.get_store(&entry_storage)?)?;
         let resolver = jbk::reader::Resolver::new(Rc::clone(&value_storage));
         let main_finder: jbk::reader::Finder<Schema> = directory
-            .get_index_from_name("main")?
+            .get_index_from_name("jim_main")?
             .get_finder(&builder)?;
         let main_entry = main_finder.get_entry(0.into())?;
 
