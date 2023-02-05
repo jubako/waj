@@ -125,8 +125,14 @@ impl Server {
                 _ => Err("Not a valid request".into()),
             };
 
-            if let Err(_e) = ret {
-                request.respond(Response::empty(StatusCode(500))).unwrap();
+            match ret {
+                Err(e) => {
+                    println!("Error : {e}");
+                    request.respond(Response::empty(StatusCode(500))).unwrap();
+                }
+                Ok(response) => {
+                    request.respond(response).unwrap();
+                }
             }
         }
         Ok(())
