@@ -126,19 +126,20 @@ impl Creator {
         let schema = schema::Schema::new(
             // Common part
             schema::CommonProperties::new(vec![
-                schema::Property::VLArray(1, Rc::clone(&path_store)), // the path
+                schema::Property::new_array(1, Rc::clone(&path_store)), // the path
             ]),
             vec![
                 // Content
                 schema::VariantProperties::new(vec![
-                    schema::Property::VLArray(0, Rc::clone(&mime_store)), // the mimetype
-                    schema::Property::ContentAddress,
+                    schema::Property::new_array(0, Rc::clone(&mime_store)), // the mimetype
+                    schema::Property::new_content_address(),
                 ]),
                 // Redirect
                 schema::VariantProperties::new(vec![
-                    schema::Property::VLArray(0, Rc::clone(&path_store)), // Id of the linked entry
+                    schema::Property::new_array(0, Rc::clone(&path_store)), // Id of the linked entry
                 ]),
             ],
+            Some(vec![0.into()]),
         );
 
         let entry_store = Box::new(jbk::creator::EntryStore::new(schema));
@@ -161,7 +162,7 @@ impl Creator {
             jbk::PropertyIdx::from(0),
             entry_store_id,
             self.entry_count,
-            jubako::EntryIdx::from(0),
+            jubako::EntryIdx::from(0).into(),
         );
         self.directory_pack.create_index(
             "jim_main",
@@ -169,7 +170,7 @@ impl Creator {
             jbk::PropertyIdx::from(0),
             entry_store_id,
             jubako::EntryCount::from(1),
-            self.main_entry_id,
+            self.main_entry_id.into(),
         );
         let directory_pack_info = self.directory_pack.finalize()?;
         let content_pack_info = self.content_pack.finalize()?;
@@ -217,7 +218,7 @@ impl Creator {
                     None => {
                         let mut buf = [0u8; 100];
                         let size = std::cmp::min(100, file.size().into_usize());
-                        file.create_stream_to(jbk::End::new_size(size))
+                        file.create_flux_to(jbk::End::new_size(size))
                             .read_exact(&mut buf[..size])?;
                         (|| {
                             for window in buf[..size].windows(4) {

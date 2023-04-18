@@ -1,10 +1,11 @@
-use crate::common::{Builder, Entry, EntryCompare, Jim, Schema};
-use jbk::reader::schema::SchemaTrait;
+use crate::common::{AllProperties, Builder, Entry, Reader, RealBuilder};
+use crate::Jim;
+use jbk::reader::builder::PropertyBuilderTrait;
+use jbk::reader::Range;
 use jubako as jbk;
-use percent_encoding::percent_decode;
+use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::net::ToSocketAddrs;
 use std::path::Path;
-use std::rc::Rc;
 use tiny_http::*;
 
 fn url_variants(url: &str) -> Vec<&str> {
@@ -16,59 +17,126 @@ fn url_variants(url: &str) -> Vec<&str> {
     vec
 }
 
+struct ContentEntry {
+    pub content_address: jbk::reader::ContentAddress,
+    pub mimetype: Vec<u8>,
+}
+
+struct ContentBuilder {
+    content_address_property: jbk::reader::builder::ContentProperty,
+    content_mimetype_property: jbk::reader::builder::ArrayProperty,
+}
+
+impl Builder for ContentBuilder {
+    type Entry = ContentEntry;
+
+    fn new(properties: &AllProperties) -> Self {
+        Self {
+            content_address_property: properties.content_address_property,
+            content_mimetype_property: properties.content_mimetype_property.clone(),
+        }
+    }
+
+    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+        let content_address = self.content_address_property.create(reader)?;
+        let mut mimetype = Default::default();
+        self.content_mimetype_property
+            .create(reader)?
+            .resolve_to_vec(&mut mimetype)?;
+        Ok(ContentEntry {
+            content_address,
+            mimetype,
+        })
+    }
+}
+
+struct RedirectBuilder {
+    target_property: jbk::reader::builder::ArrayProperty,
+}
+
+impl Builder for RedirectBuilder {
+    type Entry = Vec<u8>;
+
+    fn new(properties: &AllProperties) -> Self {
+        Self {
+            target_property: properties.redirect_target_property.clone(),
+        }
+    }
+
+    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+        let target_prop = self.target_property.create(reader)?;
+        let mut target = vec![];
+        target_prop.resolve_to_vec(&mut target)?;
+        Ok(target)
+    }
+}
+
+type FullBuilder = (ContentBuilder, RedirectBuilder);
+
+struct PathBuilder {
+    path_property: jbk::reader::builder::ArrayProperty,
+}
+
+impl Builder for PathBuilder {
+    type Entry = Vec<u8>;
+
+    fn new(properties: &AllProperties) -> Self {
+        Self {
+            path_property: properties.path_property.clone(),
+        }
+    }
+
+    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+        let path_prop = self.path_property.create(reader)?;
+        let mut path = vec![];
+        path_prop.resolve_to_vec(&mut path)?;
+        Ok(path)
+    }
+}
+
+type FullPathBuilder = (PathBuilder, PathBuilder);
+
 pub struct Server {
-    main_entry: Entry,
-    resolver: jbk::reader::Resolver,
-    builder: Builder,
-    index: jbk::reader::Index,
+    main_entry_path: String,
     jim: Jim,
 }
 
 impl Server {
     fn handle_get(&self, url: &str) -> jbk::Result<ResponseBox> {
-        print!("--- Search for {url} ");
         if url == "/" {
             let mut response = Response::empty(StatusCode(302));
+            let location = percent_encode(self.main_entry_path.as_bytes(), CONTROLS);
             response.add_header(Header {
                 field: "Location".parse().unwrap(),
-                value: self.main_entry.path()?.parse().unwrap(),
+                value: location.to_string().parse().unwrap(),
             });
             return Ok(response.boxed());
         };
 
-        let finder: jbk::reader::Finder<Schema> = self.index.get_finder(&self.builder)?;
-
         for url in url_variants(&url[1..]) {
-            let comparator = EntryCompare::new(&self.resolver, &self.builder, url.as_ref());
-            let found = finder.find(&comparator)?;
-            if let Some(idx) = found {
-                println!(" Found entry {idx:?}");
-                match finder.get_entry(idx)? {
+            if let Ok(e) = self.jim.get_entry::<FullBuilder, _>(&url) {
+                match e {
                     Entry::Content(e) => {
-                        //    println!("  content entry {:?}", e.path());
-                        let reader = self.jim.get_reader(e.get_content_address())?;
+                        let reader = self.jim.get_reader(e.content_address)?;
                         let mut response = Response::new(
                             StatusCode(200),
                             vec![],
-                            reader.create_stream_all(),
+                            reader.create_flux_all().to_owned(),
                             Some(reader.size().into_usize()),
                             None,
                         );
                         response.add_header(Header {
                             field: "Content-Type".parse().unwrap(),
-                            value: e.get_mimetype().unwrap().parse().unwrap(),
+                            value: String::from_utf8(e.mimetype)?.parse().unwrap(),
                         });
                         return Ok(response.boxed());
                     }
                     Entry::Redirect(r) => {
-                        /*       println!(
-                            "  redirect entry {:?} to {:?}", r.path(),
-                            r.get_target_link().unwrap()
-                        );*/
                         let mut response = Response::empty(StatusCode(302));
+                        let location = format!("/{}", percent_encode(&r, CONTROLS));
                         response.add_header(Header {
                             field: "Location".parse().unwrap(),
-                            value: r.get_target_link().unwrap().parse().unwrap(),
+                            value: location.parse().unwrap(),
                         });
                         return Ok(response.boxed());
                     }
@@ -80,25 +148,20 @@ impl Server {
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
         let jim = Jim::new(infile)?;
-        let directory = jim.get_directory_pack();
-        let value_storage = directory.create_value_storage();
-        let entry_storage = directory.create_entry_storage();
-        let index = directory.get_index_from_name("jim_entries")?;
-        let builder = jim
-            .schema
-            .create_builder(index.get_store(&entry_storage)?)?;
-        let resolver = jbk::reader::Resolver::new(Rc::clone(&value_storage));
-        let main_finder: jbk::reader::Finder<Schema> = directory
-            .get_index_from_name("jim_main")?
-            .get_finder(&builder)?;
-        let main_entry = main_finder.get_entry(0.into())?;
+        // We have to found the main entry..
+
+        let main_index = jim.get_index_for_name("jim_main")?;
+        let properties = jim.create_properties(&main_index)?;
+        let builder = RealBuilder::<FullPathBuilder>::new(&properties);
+        let main_entry_path =
+            String::from_utf8(match main_index.get_entry(&builder, 0.into())? {
+                Entry::Content(p) => p,
+                Entry::Redirect(p) => p,
+            })?;
 
         Ok(Self {
             jim,
-            builder,
-            resolver,
-            index,
-            main_entry,
+            main_entry_path,
         })
     }
 
