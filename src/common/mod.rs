@@ -10,17 +10,16 @@ use jbk::reader::builder::PropertyBuilderTrait;
 pub use jbk::SubReader as Reader;
 use jubako as jbk;
 pub use properties::AllProperties;
-use std::rc::Rc;
 
 pub struct Comparator {
-    store: Rc<jbk::reader::EntryStore>,
+    store: jbk::reader::EntryStore,
     path_property: jbk::reader::builder::ArrayProperty,
 }
 
 impl Comparator {
     pub fn new(properties: &AllProperties) -> Self {
         Self {
-            store: Rc::clone(&properties.store),
+            store: properties.store.clone(),
             path_property: properties.path_property.clone(),
         }
     }

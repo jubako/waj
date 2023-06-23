@@ -1,8 +1,7 @@
 use jubako as jbk;
-use std::rc::Rc;
 
 pub struct AllProperties {
-    pub store: Rc<jbk::reader::EntryStore>,
+    pub store: jbk::reader::EntryStore,
     pub path_property: jbk::reader::builder::ArrayProperty,
     pub variant_id_property: jbk::reader::builder::VariantIdProperty,
     pub content_mimetype_property: jbk::reader::builder::ArrayProperty,
@@ -12,7 +11,7 @@ pub struct AllProperties {
 
 impl AllProperties {
     pub fn new(
-        store: Rc<jbk::reader::EntryStore>,
+        store: jbk::reader::EntryStore,
         value_storage: &jbk::reader::ValueStorage,
     ) -> jbk::Result<Self> {
         let layout = store.layout();

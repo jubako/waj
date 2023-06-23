@@ -3,7 +3,6 @@ use super::entry_type::EntryType;
 use super::{AllProperties, Reader};
 use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
-use std::rc::Rc;
 
 pub trait Builder {
     type Entry;
@@ -67,7 +66,7 @@ where
 }
 
 pub(crate) struct RealBuilder<B: FullBuilderTrait> {
-    store: Rc<jbk::reader::EntryStore>,
+    store: jbk::reader::EntryStore,
     variant_id_property: jbk::reader::builder::VariantIdProperty,
     builder: B,
 }
@@ -79,7 +78,7 @@ where
     pub fn new(properties: &AllProperties) -> Self {
         let builder = B::new(properties);
         Self {
-            store: Rc::clone(&properties.store),
+            store: properties.store.clone(),
             variant_id_property: properties.variant_id_property,
             builder,
         }
