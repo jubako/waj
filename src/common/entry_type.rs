@@ -1,6 +1,7 @@
 use jubako as jbk;
 
 #[repr(u8)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum EntryType {
     Content = 0,
     Redirect = 1,
@@ -16,6 +17,17 @@ impl TryFrom<jbk::VariantIdx> for EntryType {
         }
     }
 }
+
+impl ToString for EntryType {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            EntryType::Content => "content",
+            EntryType::Redirect => "redirect",
+        })
+    }
+}
+
+impl jbk::creator::VariantName for EntryType {}
 
 impl From<EntryType> for jbk::VariantIdx {
     fn from(t: EntryType) -> Self {

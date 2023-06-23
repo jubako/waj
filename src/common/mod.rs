@@ -6,10 +6,11 @@ mod properties;
 pub(crate) use builder::RealBuilder;
 pub use builder::{Builder, FullBuilderTrait};
 pub use entry::{Entry, EntryDef};
+pub use entry_type::EntryType;
 use jbk::reader::builder::PropertyBuilderTrait;
 pub use jbk::SubReader as Reader;
 use jubako as jbk;
-pub use properties::AllProperties;
+pub use properties::{AllProperties, Property};
 
 pub struct Comparator {
     store: jbk::reader::EntryStore,

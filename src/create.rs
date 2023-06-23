@@ -1,7 +1,9 @@
 use jubako as jbk;
 
+use super::common::{EntryType, Property};
 use jbk::creator::schema;
 use mime_guess::mime;
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs;
 use std::os::unix::ffi::OsStringExt;
@@ -83,10 +85,13 @@ impl Entry {
     }
 }
 
+type EntryStore =
+    jbk::creator::EntryStore<Property, EntryType, jbk::creator::BasicEntry<Property, EntryType>>;
+
 pub struct Creator {
     content_pack: jbk::creator::ContentPackCreator,
     directory_pack: jbk::creator::DirectoryPackCreator,
-    entry_store: Box<jbk::creator::EntryStore<jbk::creator::BasicEntry>>,
+    entry_store: Box<EntryStore>,
     entry_count: jbk::EntryCount,
     main_entry_path: PathBuf,
     main_entry_id: jbk::EntryIdx,
@@ -126,20 +131,26 @@ impl Creator {
         let schema = schema::Schema::new(
             // Common part
             schema::CommonProperties::new(vec![
-                schema::Property::new_array(1, Rc::clone(&path_store)), // the path
+                schema::Property::new_array(1, Rc::clone(&path_store), Property::Path), // the path
             ]),
             vec![
                 // Content
-                schema::VariantProperties::new(vec![
-                    schema::Property::new_array(0, Rc::clone(&mime_store)), // the mimetype
-                    schema::Property::new_content_address(),
-                ]),
+                (
+                    EntryType::Content,
+                    schema::VariantProperties::new(vec![
+                        schema::Property::new_array(0, Rc::clone(&mime_store), Property::Mimetype), // the mimetype
+                        schema::Property::new_content_address(Property::Content),
+                    ]),
+                ),
                 // Redirect
-                schema::VariantProperties::new(vec![
-                    schema::Property::new_array(0, Rc::clone(&path_store)), // Id of the linked entry
-                ]),
+                (
+                    EntryType::Redirect,
+                    schema::VariantProperties::new(vec![
+                        schema::Property::new_array(0, Rc::clone(&path_store), Property::Target), // Id of the linked entry
+                    ]),
+                ),
             ],
-            Some(vec![0.into()]),
+            Some(vec![Property::Path]),
         );
 
         let entry_store = Box::new(jbk::creator::EntryStore::new(schema));
@@ -172,8 +183,8 @@ impl Creator {
             jubako::EntryCount::from(1),
             self.main_entry_id.into(),
         );
-        let directory_pack_info = self.directory_pack.finalize()?;
-        let content_pack_info = self.content_pack.finalize()?;
+        let directory_pack_info = self.directory_pack.finalize(None)?;
+        let content_pack_info = self.content_pack.finalize(None)?;
         let mut manifest_creator = jbk::creator::ManifestPackCreator::new(
             outfile,
             VENDOR_ID,
@@ -203,6 +214,7 @@ impl Creator {
         let mut value_entry_path = entry.path.clone().into_os_string().into_vec();
         value_entry_path.truncate(255);
         let value_entry_path = jbk::Value::Array(value_entry_path);
+        let mut values = HashMap::from([(Property::Path, value_entry_path)]);
         let new_entry = match entry.kind {
             EntryKind::Dir => {
                 for sub_entry in fs::read_dir(&entry.path)? {
@@ -232,26 +244,29 @@ impl Creator {
                 };
                 let content_id = self.content_pack.add_content(file)?;
 
+                values.insert(
+                    Property::Mimetype,
+                    jbk::Value::Array(mime_type.to_string().into()),
+                );
+                values.insert(
+                    Property::Content,
+                    jbk::Value::Content(jbk::ContentAddress::new(jbk::PackId::from(1), content_id)),
+                );
+
                 Some(jbk::creator::BasicEntry::new_from_schema(
                     &self.entry_store.schema,
-                    Some(0.into()),
-                    vec![
-                        value_entry_path,
-                        jbk::Value::Array(mime_type.to_string().into()),
-                        jbk::Value::Content(jbk::ContentAddress::new(
-                            jbk::PackId::from(1),
-                            content_id,
-                        )),
-                    ],
+                    Some(EntryType::Content),
+                    values,
                 ))
             }
             EntryKind::Link => {
                 let mut target = fs::read_link(&entry.path)?.into_os_string().into_vec();
                 target.truncate(255);
+                values.insert(Property::Target, jbk::Value::Array(target));
                 Some(jbk::creator::BasicEntry::new_from_schema(
                     &self.entry_store.schema,
-                    Some(1.into()),
-                    vec![value_entry_path, jbk::Value::Array(target)],
+                    Some(EntryType::Redirect),
+                    values,
                 ))
             }
             EntryKind::Other => unreachable!(),
