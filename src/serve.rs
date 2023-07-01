@@ -1,5 +1,5 @@
 use crate::common::{AllProperties, Builder, Entry, Reader, RealBuilder};
-use crate::Jim;
+use crate::Wpack;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::Range;
 use jubako as jbk;
@@ -98,7 +98,7 @@ type FullPathBuilder = (PathBuilder, PathBuilder);
 
 pub struct Server {
     main_entry_path: String,
-    jim: Jim,
+    wpack: Wpack,
 }
 
 impl Server {
@@ -114,10 +114,10 @@ impl Server {
         };
 
         for url in url_variants(&url[1..]) {
-            if let Ok(e) = self.jim.get_entry::<FullBuilder, _>(&url) {
+            if let Ok(e) = self.wpack.get_entry::<FullBuilder, _>(&url) {
                 match e {
                     Entry::Content(e) => {
-                        let reader = self.jim.get_reader(e.content_address)?;
+                        let reader = self.wpack.get_reader(e.content_address)?;
                         let mut response = Response::new(
                             StatusCode(200),
                             vec![],
@@ -147,11 +147,11 @@ impl Server {
     }
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
-        let jim = Jim::new(infile)?;
+        let wpack = Wpack::new(infile)?;
         // We have to found the main entry..
 
-        let main_index = jim.get_index_for_name("jim_main")?;
-        let properties = jim.create_properties(&main_index)?;
+        let main_index = wpack.get_index_for_name("wpack_main")?;
+        let properties = wpack.create_properties(&main_index)?;
         let builder = RealBuilder::<FullPathBuilder>::new(&properties);
         let main_entry_path =
             String::from_utf8(match main_index.get_entry(&builder, 0.into())? {
@@ -160,7 +160,7 @@ impl Server {
             })?;
 
         Ok(Self {
-            jim,
+            wpack,
             main_entry_path,
         })
     }

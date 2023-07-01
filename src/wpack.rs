@@ -4,13 +4,13 @@ use jubako::reader::Range;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
-pub struct Jim {
+pub struct Wpack {
     container: jbk::reader::Container,
     pub(crate) root_index: jbk::reader::Index,
     pub(crate) properties: AllProperties,
 }
 
-impl std::ops::Deref for Jim {
+impl std::ops::Deref for Wpack {
     type Target = jbk::reader::Container;
     fn deref(&self) -> &Self::Target {
         &self.container
@@ -27,12 +27,12 @@ fn create_properties(
     )
 }
 
-impl Jim {
+impl Wpack {
     pub fn new<P: AsRef<Path>>(file: P) -> jbk::Result<Self> {
         let container = jbk::reader::Container::new(&file)?;
         let root_index = container
             .get_directory_pack()
-            .get_index_from_name("jim_entries")?;
+            .get_index_from_name("wpack_entries")?;
         let properties = create_properties(&container, &root_index)?;
         Ok(Self {
             container,
