@@ -1,7 +1,6 @@
-use crate::common::{AllProperties, Builder, Entry, Reader, RealBuilder};
+use crate::common::{AllProperties, Builder, Entry, Reader};
 use crate::Wpack;
 use jbk::reader::builder::PropertyBuilderTrait;
-use jbk::reader::Range;
 use jubako as jbk;
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::net::ToSocketAddrs;
@@ -73,31 +72,7 @@ impl Builder for RedirectBuilder {
 
 type FullBuilder = (ContentBuilder, RedirectBuilder);
 
-struct PathBuilder {
-    path_property: jbk::reader::builder::ArrayProperty,
-}
-
-impl Builder for PathBuilder {
-    type Entry = Vec<u8>;
-
-    fn new(properties: &AllProperties) -> Self {
-        Self {
-            path_property: properties.path_property.clone(),
-        }
-    }
-
-    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
-        let path_prop = self.path_property.create(reader)?;
-        let mut path = vec![];
-        path_prop.resolve_to_vec(&mut path)?;
-        Ok(path)
-    }
-}
-
-type FullPathBuilder = (PathBuilder, PathBuilder);
-
 pub struct Server {
-    main_entry_path: String,
     wpack: Wpack,
 }
 
@@ -105,7 +80,7 @@ impl Server {
     fn handle_get(&self, url: &str) -> jbk::Result<ResponseBox> {
         if url == "/" {
             let mut response = Response::empty(StatusCode(302));
-            let location = percent_encode(self.main_entry_path.as_bytes(), CONTROLS);
+            let location = percent_encode(&self.wpack.main_entry_path, CONTROLS);
             response.add_header(Header {
                 field: "Location".parse().unwrap(),
                 value: location.to_string().parse().unwrap(),
@@ -148,20 +123,9 @@ impl Server {
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
         let wpack = Wpack::new(infile)?;
-        // We have to found the main entry..
-
-        let main_index = wpack.get_index_for_name("wpack_main")?;
-        let properties = wpack.create_properties(&main_index)?;
-        let builder = RealBuilder::<FullPathBuilder>::new(&properties);
-        let main_entry_path =
-            String::from_utf8(match main_index.get_entry(&builder, 0.into())? {
-                Entry::Content(p) => p,
-                Entry::Redirect(p) => p,
-            })?;
 
         Ok(Self {
             wpack,
-            main_entry_path,
         })
     }
 

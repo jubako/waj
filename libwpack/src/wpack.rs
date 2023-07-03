@@ -1,6 +1,7 @@
-use super::common::{AllProperties, Comparator, Entry, FullBuilderTrait, RealBuilder};
+use super::common::{AllProperties, Comparator, Entry, FullBuilderTrait, RealBuilder, Builder};
 use jubako as jbk;
 use jubako::reader::Range;
+use jbk::reader::builder::PropertyBuilderTrait;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
@@ -9,6 +10,7 @@ pub use jbk::SubReader as Reader;
 pub struct Wpack {
     container: jbk::reader::Container,
     pub(crate) root_index: jbk::reader::Index,
+    pub main_entry_path: Vec<u8>,
     pub(crate) properties: AllProperties,
 }
 
@@ -29,6 +31,29 @@ fn create_properties(
     )
 }
 
+struct PathBuilder {
+    path_property: jbk::reader::builder::ArrayProperty,
+}
+
+impl Builder for PathBuilder {
+    type Entry = Vec<u8>;
+
+    fn new(properties: &AllProperties) -> Self {
+        Self {
+            path_property: properties.path_property.clone(),
+        }
+    }
+
+    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+        let path_prop = self.path_property.create(reader)?;
+        let mut path = vec![];
+        path_prop.resolve_to_vec(&mut path)?;
+        Ok(path)
+    }
+}
+
+type FullPathBuilder = (PathBuilder, PathBuilder);
+
 impl Wpack {
     pub fn new<P: AsRef<Path>>(file: P) -> jbk::Result<Self> {
         let container = jbk::reader::Container::new(&file)?;
@@ -36,9 +61,19 @@ impl Wpack {
             .get_directory_pack()
             .get_index_from_name("wpack_entries")?;
         let properties = create_properties(&container, &root_index)?;
+
+        let main_index = container.get_directory_pack().get_index_from_name("wpack_main")?;
+        let main_index_properties = create_properties(&container, &main_index)?;
+        let builder = RealBuilder::<FullPathBuilder>::new(&main_index_properties);
+        let main_entry_path =
+            match main_index.get_entry(&builder, 0.into())? {
+                Entry::Content(p) => p,
+                Entry::Redirect(p) => p,
+            };
         Ok(Self {
             container,
             root_index,
+            main_entry_path,
             properties,
         })
     }
