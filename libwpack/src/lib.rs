@@ -6,7 +6,7 @@ mod entry;
 pub mod fs_adder;
 mod serve;
 mod wpack;
-//pub mod walk;
+pub mod walk;
 
 pub use common::{AllProperties, Builder, Entry, FullBuilderTrait, Reader};
 pub use entry::*;
