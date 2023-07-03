@@ -5,6 +5,7 @@ use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{PathBuf};
 use std::rc::Rc;
+use mime_guess::mime;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum FsEntryKind {
@@ -108,7 +109,28 @@ impl EntryTrait for FsEntry {
     fn kind(&self) -> jbk::Result<EntryKind> {
         Ok(match self.kind {
             FsEntryKind::File => {
-                EntryKind::Content(jbk::creator::FileSource::open(&self.path)?.into())
+                let file = jbk::Reader::from(jbk::creator::FileSource::open(&self.path)?);
+                let mime_type = match mime_guess::from_path(&self.path).first() {
+                    Some(m) => m,
+                    None => {
+                        let mut buf = [0u8; 100];
+                        let size = std::cmp::min(100, file.size().into_usize());
+                        file.create_flux_to(jbk::End::new_size(size))
+                            .read_exact(&mut buf[..size])?;
+                        (|| {
+                            for window in buf[..size].windows(4) {
+                                if window == b"html" {
+                                    return mime::TEXT_HTML;
+                                }
+                            }
+                            mime::APPLICATION_OCTET_STREAM
+                       })()
+                    }
+                };
+                EntryKind::Content(
+                    file,
+                    mime_type
+                )
             }
             FsEntryKind::Link => EntryKind::Redirect(fs::read_link(&self.path)?.into()),
             FsEntryKind::Dir => unreachable!(),

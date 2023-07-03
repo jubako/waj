@@ -8,6 +8,7 @@ use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+use mime_guess::Mime;
 
 const VENDOR_ID: u32 = 0x6a_69_6d_00;
 
@@ -24,7 +25,7 @@ pub enum ConcatMode {
 }
 
 pub enum EntryKind {
-    Content(jbk::Reader),
+    Content(jbk::Reader, Mime),
     Redirect(OsString),
 }
 
@@ -256,11 +257,15 @@ impl Creator {
         )]);
         let is_main_entry = entry.name() == self.main_entry_path;
         match entry.kind()? {
-            EntryKind::Content(reader) => {
+            EntryKind::Content(reader, mimetype) => {
                 let content_id = self.content_pack.add_content(reader)?;
                 values.insert(
                     Property::Content,
                     jbk::Value::Content(jbk::ContentAddress::new(jbk::PackId::from(1), content_id)),
+                );
+                values.insert(
+                    Property::Mimetype,
+                    jbk::Value::Array(mimetype.to_string().into())
                 );
                 let entry = Box::new(jbk::creator::BasicEntry::new_from_schema(
                     &self.entry_store.schema,
