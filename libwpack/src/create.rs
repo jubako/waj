@@ -4,7 +4,6 @@ use crate::common::{EntryType, Property};
 use jbk::creator::schema;
 use std::collections::{hash_map::Entry as MapEntry, HashMap};
 use std::ffi::{OsStr, OsString};
-use std::fs;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -46,131 +45,6 @@ where
     }
     fn name(&self) -> &OsStr {
         self.as_ref().name()
-    }
-}
-
-#[derive(PartialEq, Eq, Debug)]
-pub enum FsEntryKind {
-    Dir,
-    File,
-    Link,
-    Other,
-}
-
-type Filter = Rc<dyn Fn(FsEntry) -> Option<FsEntry>>;
-
-pub struct FsEntry {
-    pub kind: FsEntryKind,
-    pub path: PathBuf,
-    pub name: OsString,
-    recurse: bool,
-    filter: Filter,
-}
-
-impl FsEntry {
-    fn new(path: PathBuf, name: OsString, recurse: bool, filter: Filter) -> jbk::Result<Self> {
-        let attr = fs::symlink_metadata(&path)?;
-        Ok(if attr.is_dir() {
-            Self {
-                kind: FsEntryKind::Dir,
-                path,
-                name,
-                recurse,
-                filter,
-            }
-        } else if attr.is_file() {
-            Self {
-                kind: FsEntryKind::File,
-                path,
-                name,
-                recurse,
-                filter,
-            }
-        } else if attr.is_symlink() {
-            Self {
-                kind: FsEntryKind::Link,
-                path,
-                name,
-                recurse,
-                filter,
-            }
-        } else {
-            Self {
-                kind: FsEntryKind::Other,
-                path,
-                name,
-                recurse,
-                filter,
-            }
-        })
-    }
-
-    pub fn new_from_fs(
-        dir_entry: fs::DirEntry,
-        recurse: bool,
-        filter: Filter,
-    ) -> jbk::Result<Self> {
-        let path = dir_entry.path();
-        let name = dir_entry.file_name();
-        Ok(if let Ok(file_type) = dir_entry.file_type() {
-            if file_type.is_dir() {
-                Self {
-                    kind: FsEntryKind::Dir,
-                    path,
-                    name,
-                    recurse,
-                    filter,
-                }
-            } else if file_type.is_file() {
-                Self {
-                    kind: FsEntryKind::File,
-                    path,
-                    name,
-                    recurse,
-                    filter,
-                }
-            } else if file_type.is_symlink() {
-                Self {
-                    kind: FsEntryKind::Link,
-                    path,
-                    name,
-                    recurse,
-                    filter,
-                }
-            } else {
-                Self {
-                    kind: FsEntryKind::Other,
-                    path,
-                    name,
-                    recurse,
-                    filter,
-                }
-            }
-        } else {
-            Self {
-                kind: FsEntryKind::Other,
-                path,
-                name,
-                recurse,
-                filter,
-            }
-        })
-    }
-}
-
-impl EntryTrait for FsEntry {
-    fn kind(&self) -> jbk::Result<EntryKind> {
-        Ok(match self.kind {
-            FsEntryKind::File => {
-                EntryKind::Content(jbk::creator::FileSource::open(&self.path)?.into())
-            }
-            FsEntryKind::Link => EntryKind::Redirect(fs::read_link(&self.path)?.into()),
-            FsEntryKind::Dir => todo!(),
-            FsEntryKind::Other => unreachable!(),
-        })
-    }
-    fn name(&self) -> &OsStr {
-        &self.name
     }
 }
 
@@ -225,8 +99,7 @@ pub struct Creator {
     directory_pack: jbk::creator::DirectoryPackCreator,
     entry_store: Box<EntryStore>,
     main_entry_path: PathBuf,
-    main_entry_id: Option<jbk::Bound<jbk::EntryIdx>>,
-    strip_prefix: PathBuf,
+    main_entry_id: Option<EntryIdx>,
     concat_mode: ConcatMode,
     tmp_path_content_pack: tempfile::TempPath,
     tmp_path_directory_pack: tempfile::TempPath,
@@ -235,7 +108,6 @@ pub struct Creator {
 impl Creator {
     pub fn new<P: AsRef<Path>>(
         outfile: P,
-        strip_prefix: PathBuf,
         main_entry: PathBuf,
         concat_mode: ConcatMode,
         jbk_progress: Arc<dyn jbk::creator::Progress>,
@@ -297,7 +169,6 @@ impl Creator {
             content_pack: CachedContentPack::new(content_pack, progress),
             directory_pack,
             entry_store,
-            strip_prefix,
             main_entry_path: main_entry,
             main_entry_id: Default::default(),
             concat_mode,
@@ -373,37 +244,6 @@ impl Creator {
         manifest_creator.add_pack(content_pack_info);
         manifest_creator.finalize()?;
         Ok(())
-    }
-
-    pub fn add_from_path<P: AsRef<std::path::Path>>(&mut self, path: P, recurse: bool) -> Void {
-        self.add_from_path_with_filter(path, recurse, Rc::new(&Some))
-    }
-
-    pub fn add_from_path_with_filter<P>(&mut self, path: P, recurse: bool, filter: Filter) -> Void
-    where
-        P: AsRef<std::path::Path>,
-    {
-        let rel_path = path.as_ref().strip_prefix(&self.strip_prefix).unwrap();
-        if rel_path.as_os_str().is_empty() {
-            if recurse {
-                for sub_entry in fs::read_dir(path)? {
-                    let sub_entry = sub_entry?;
-                    self.add_entry(FsEntry::new_from_fs(
-                        sub_entry,
-                        recurse,
-                        Rc::clone(&filter),
-                    )?)?;
-                }
-            }
-            Ok(())
-        } else {
-            self.add_entry(FsEntry::new(
-                path.as_ref().to_path_buf(),
-                path.as_ref().file_name().unwrap().to_os_string(),
-                recurse,
-                filter,
-            )?)
-        }
     }
 
     pub fn add_entry<E>(&mut self, entry: E) -> Void

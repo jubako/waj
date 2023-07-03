@@ -12,7 +12,6 @@ use jbk::reader::Range;
 use jubako as jbk;
 pub use properties::{AllProperties, Property};
 
-pub type EntryResult<T> = Result<T, EntryType>;
 pub use jbk::SubReader as Reader;
 
 pub struct Comparator {

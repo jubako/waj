@@ -3,6 +3,7 @@
 mod common;
 pub mod create;
 mod entry;
+pub mod fs_adder;
 mod serve;
 mod wpack;
 //pub mod walk;
