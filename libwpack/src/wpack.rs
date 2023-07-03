@@ -34,7 +34,7 @@ impl Wpack {
         let container = jbk::reader::Container::new(&file)?;
         let root_index = container
             .get_directory_pack()
-            .get_index_from_name("wpack_root")?;
+            .get_index_from_name("wpack_entries")?;
         let properties = create_properties(&container, &root_index)?;
         Ok(Self {
             container,
