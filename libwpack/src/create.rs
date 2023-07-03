@@ -179,6 +179,12 @@ impl Creator {
     }
 
     pub fn finalize(mut self, outfile: &Path) -> Void {
+        let main_entry_id = match self.main_entry_id {
+            Some(id) => id,
+            None => {
+                return Err(format!("No entry found for the main entry ({})", self.main_entry_path.display()).into())
+            }
+        };
         let entry_count = self.entry_store.len();
         let entry_store_id = self.directory_pack.add_entry_store(self.entry_store);
         self.directory_pack.create_index(
@@ -195,7 +201,7 @@ impl Creator {
             jbk::PropertyIdx::from(0),
             entry_store_id,
             jubako::EntryCount::from(1),
-            self.main_entry_id.unwrap().into(),
+            main_entry_id.into(),
         );
 
         let directory_pack_info = match self.concat_mode {
