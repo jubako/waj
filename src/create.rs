@@ -1,283 +1,156 @@
 use jubako as jbk;
+use libwpack as wpack;
 
-use super::common::{EntryType, Property};
-use jbk::creator::schema;
-use mime_guess::mime;
-use std::collections::HashMap;
-use std::ffi::OsString;
-use std::fs;
-use std::os::unix::ffi::OsStringExt;
-use std::path::{Path, PathBuf};
+use std::cell::Cell;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
-const VENDOR_ID: u32 = 0x6a_69_6d_00;
+#[derive(clap::Args)]
+pub struct Options {
+    // Archive name to create
+    #[clap(short = 'f', long = "file", value_parser)]
+    outfile: PathBuf,
 
-#[derive(Debug)]
-enum EntryKind {
-    Dir,
-    File,
-    Link,
-    Other,
+    #[clap(long, required = false)]
+    strip_prefix: Option<PathBuf>,
+
+    #[clap(short = 'C', required = false)]
+    base_dir: Option<PathBuf>,
+
+    // Input
+    #[clap(value_parser)]
+    infiles: Vec<PathBuf>,
+
+    #[clap(short = 'L', long = "file-list")]
+    file_list: Option<PathBuf>,
+
+    #[clap(short, long, required = false, default_value_t = false, action)]
+    recurse: bool,
+
+    #[clap(short, long, value_parser)]
+    main_entry: PathBuf,
+
+    #[clap(short = '1', long, required = false, default_value_t = false, action)]
+    one_file: bool,
 }
 
-#[derive(Debug)]
-pub struct Entry {
-    kind: EntryKind,
-    path: PathBuf,
+fn get_files_to_add(options: &Options) -> jbk::Result<Vec<PathBuf>> {
+    if let Some(file_list) = &options.file_list {
+        let file = File::open(file_list)?;
+        let mut files = Vec::new();
+        for line in BufReader::new(file).lines() {
+            files.push(line?.into());
+        }
+        Ok(files)
+    } else {
+        Ok(options.infiles.clone())
+    }
 }
 
-impl Entry {
-    pub fn new(path: PathBuf) -> jbk::Result<Self> {
-        let attr = fs::symlink_metadata(&path)?;
-        Ok(if attr.is_dir() {
-            Self {
-                kind: EntryKind::Dir,
-                path,
-            }
-        } else if attr.is_file() {
-            Self {
-                kind: EntryKind::File,
-                path,
-            }
-        } else if attr.is_symlink() {
-            Self {
-                kind: EntryKind::Link,
-                path,
-            }
+struct ProgressBar {
+    comp_clusters: indicatif::ProgressBar,
+    uncomp_clusters: indicatif::ProgressBar,
+}
+
+impl ProgressBar {
+    fn new() -> Self {
+        let style = indicatif::ProgressStyle::with_template(
+            "{prefix} : {wide_bar:.cyan/blue} {pos:4} / {len:4}",
+        )
+        .unwrap()
+        .progress_chars("#+-");
+        let multi = indicatif::MultiProgress::new();
+        let comp_clusters = indicatif::ProgressBar::new(0)
+            .with_style(style.clone())
+            .with_prefix("Compressed Cluster  ");
+        let uncomp_clusters = indicatif::ProgressBar::new(0)
+            .with_style(style)
+            .with_prefix("Uncompressed Cluster");
+        multi.add(comp_clusters.clone());
+        multi.add(uncomp_clusters.clone());
+        Self {
+            comp_clusters,
+            uncomp_clusters,
+        }
+    }
+}
+
+impl jbk::creator::Progress for ProgressBar {
+    fn new_cluster(&self, _cluster_idx: u32, compressed: bool) {
+        if compressed {
+            &self.comp_clusters
         } else {
-            Self {
-                kind: EntryKind::Other,
-                path,
-            }
-        })
+            &self.uncomp_clusters
+        }
+        .inc_length(1)
     }
-
-    pub fn new_from_fs(dir_entry: fs::DirEntry) -> Self {
-        let path = dir_entry.path();
-        if let Ok(file_type) = dir_entry.file_type() {
-            if file_type.is_dir() {
-                Self {
-                    kind: EntryKind::Dir,
-                    path,
-                }
-            } else if file_type.is_file() {
-                Self {
-                    kind: EntryKind::File,
-                    path,
-                }
-            } else if file_type.is_symlink() {
-                Self {
-                    kind: EntryKind::Link,
-                    path,
-                }
-            } else {
-                Self {
-                    kind: EntryKind::Other,
-                    path,
-                }
-            }
+    fn handle_cluster(&self, _cluster_idx: u32, compressed: bool) {
+        if compressed {
+            &self.comp_clusters
         } else {
-            Self {
-                kind: EntryKind::Other,
-                path,
-            }
+            &self.uncomp_clusters
         }
+        .inc(1)
     }
 }
 
-type EntryStore =
-    jbk::creator::EntryStore<Property, EntryType, jbk::creator::BasicEntry<Property, EntryType>>;
+struct CachedSize(Cell<u64>);
 
-pub struct Creator {
-    content_pack: jbk::creator::ContentPackCreator,
-    directory_pack: jbk::creator::DirectoryPackCreator,
-    entry_store: Box<EntryStore>,
-    entry_count: jbk::EntryCount,
-    main_entry_path: PathBuf,
-    main_entry_id: jbk::EntryIdx,
+impl wpack::create::Progress for CachedSize {
+    fn cached_data(&self, size: jbk::Size) {
+        self.0.set(self.0.get() + size.into_u64());
+    }
 }
 
-impl Creator {
-    pub fn new<P: AsRef<Path>>(outfile: P, main_entry: PathBuf) -> jbk::Result<Self> {
-        let outfile = outfile.as_ref();
-        let mut outfilename: OsString = outfile.file_name().unwrap().to_os_string();
-        outfilename.push(".wpackc");
-        let mut content_pack_path = PathBuf::new();
-        content_pack_path.push(outfile);
-        content_pack_path.set_file_name(outfilename);
-        let content_pack = jbk::creator::ContentPackCreator::new(
-            content_pack_path,
-            jbk::PackId::from(1),
-            VENDOR_ID,
-            jbk::FreeData40::clone_from_slice(&[0x00; 40]),
-            jbk::CompressionType::Zstd,
-        )?;
+impl CachedSize {
+    fn new() -> Self {
+        Self(Cell::new(0))
+    }
+}
 
-        outfilename = outfile.file_name().unwrap().to_os_string();
-        outfilename.push(".wpackd");
-        let mut directory_pack_path = PathBuf::new();
-        directory_pack_path.push(outfile);
-        directory_pack_path.set_file_name(outfilename);
-        let mut directory_pack = jbk::creator::DirectoryPackCreator::new(
-            directory_pack_path,
-            jbk::PackId::from(0),
-            VENDOR_ID,
-            jbk::FreeData31::clone_from_slice(&[0x00; 31]),
-        );
-
-        let path_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Plain);
-        let mime_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Indexed);
-
-        let schema = schema::Schema::new(
-            // Common part
-            schema::CommonProperties::new(vec![
-                schema::Property::new_array(1, Rc::clone(&path_store), Property::Path), // the path
-            ]),
-            vec![
-                // Content
-                (
-                    EntryType::Content,
-                    schema::VariantProperties::new(vec![
-                        schema::Property::new_array(0, Rc::clone(&mime_store), Property::Mimetype), // the mimetype
-                        schema::Property::new_content_address(Property::Content),
-                    ]),
-                ),
-                // Redirect
-                (
-                    EntryType::Redirect,
-                    schema::VariantProperties::new(vec![
-                        schema::Property::new_array(0, Rc::clone(&path_store), Property::Target), // Id of the linked entry
-                    ]),
-                ),
-            ],
-            Some(vec![Property::Path]),
-        );
-
-        let entry_store = Box::new(jbk::creator::EntryStore::new(schema));
-
-        Ok(Self {
-            content_pack,
-            directory_pack,
-            entry_store,
-            entry_count: 0.into(),
-            main_entry_path: main_entry,
-            main_entry_id: Default::default(),
-        })
+pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
+    if verbose_level > 0 {
+        println!("Creating archive {:?}", options.outfile);
+        println!("With files {:?}", options.infiles);
     }
 
-    fn finalize(mut self, outfile: PathBuf) -> jbk::Result<()> {
-        let entry_store_id = self.directory_pack.add_entry_store(self.entry_store);
-        self.directory_pack.create_index(
-            "wpack_entries",
-            jubako::ContentAddress::new(0.into(), 0.into()),
-            jbk::PropertyIdx::from(0),
-            entry_store_id,
-            self.entry_count,
-            jubako::EntryIdx::from(0).into(),
-        );
-        self.directory_pack.create_index(
-            "wpack_main",
-            jubako::ContentAddress::new(0.into(), 0.into()),
-            jbk::PropertyIdx::from(0),
-            entry_store_id,
-            jubako::EntryCount::from(1),
-            self.main_entry_id.into(),
-        );
-        let directory_pack_info = self.directory_pack.finalize(None)?;
-        let content_pack_info = self.content_pack.finalize(None)?;
-        let mut manifest_creator = jbk::creator::ManifestPackCreator::new(
-            outfile,
-            VENDOR_ID,
-            jbk::FreeData63::clone_from_slice(&[0x00; 63]),
-        );
+    let strip_prefix = match &options.strip_prefix {
+        Some(s) => s.clone(),
+        None => PathBuf::new(),
+    };
 
-        manifest_creator.add_pack(directory_pack_info);
-        manifest_creator.add_pack(content_pack_info);
-        manifest_creator.finalize()?;
-        Ok(())
+    let out_file = std::env::current_dir()?.join(&options.outfile);
+
+    let concat_mode = if options.one_file {
+        wpack::create::ConcatMode::OneFile
+    } else {
+        wpack::create::ConcatMode::TwoFiles
+    };
+
+    let jbk_progress = Arc::new(ProgressBar::new());
+    let progress = Rc::new(CachedSize::new());
+    let mut creator = wpack::create::Creator::new(
+        &out_file,
+        strip_prefix,
+        options.main_entry.clone(),
+        concat_mode,
+        jbk_progress,
+        Rc::clone(&progress) as Rc<dyn wpack::create::Progress>,
+    )?;
+
+    let files_to_add = get_files_to_add(&options)?;
+
+    if let Some(base_dir) = &options.base_dir {
+        std::env::set_current_dir(base_dir)?;
+    };
+    for infile in files_to_add {
+        creator.add_from_path(infile, options.recurse)?;
     }
 
-    pub fn run(mut self, outfile: PathBuf, infiles: Vec<PathBuf>) -> jbk::Result<()> {
-        for infile in infiles {
-            let entry = Entry::new(infile)?;
-            self.handle(entry)?;
-        }
-        self.finalize(outfile)
-    }
-
-    fn handle(&mut self, entry: Entry) -> jbk::Result<()> {
-        if self.entry_count.into_u32() % 1000 == 0 {
-            println!("{} {:?}", self.entry_count, entry);
-        }
-        let entry_path = entry.path.clone();
-
-        let mut value_entry_path = entry.path.clone().into_os_string().into_vec();
-        value_entry_path.truncate(255);
-        let value_entry_path = jbk::Value::Array(value_entry_path);
-        let mut values = HashMap::from([(Property::Path, value_entry_path)]);
-        let new_entry = match entry.kind {
-            EntryKind::Dir => {
-                for sub_entry in fs::read_dir(&entry.path)? {
-                    self.handle(Entry::new_from_fs(sub_entry?))?;
-                }
-                None
-            }
-            EntryKind::File => {
-                let file = jbk::Reader::from(jbk::creator::FileSource::open(&entry.path)?);
-
-                let mime_type = match mime_guess::from_path(entry.path).first() {
-                    Some(m) => m,
-                    None => {
-                        let mut buf = [0u8; 100];
-                        let size = std::cmp::min(100, file.size().into_usize());
-                        file.create_flux_to(jbk::End::new_size(size))
-                            .read_exact(&mut buf[..size])?;
-                        (|| {
-                            for window in buf[..size].windows(4) {
-                                if window == b"html" {
-                                    return mime::TEXT_HTML;
-                                }
-                            }
-                            mime::APPLICATION_OCTET_STREAM
-                        })()
-                    }
-                };
-                let content_id = self.content_pack.add_content(file)?;
-
-                values.insert(
-                    Property::Mimetype,
-                    jbk::Value::Array(mime_type.to_string().into()),
-                );
-                values.insert(
-                    Property::Content,
-                    jbk::Value::Content(jbk::ContentAddress::new(jbk::PackId::from(1), content_id)),
-                );
-
-                Some(jbk::creator::BasicEntry::new_from_schema(
-                    &self.entry_store.schema,
-                    Some(EntryType::Content),
-                    values,
-                ))
-            }
-            EntryKind::Link => {
-                let mut target = fs::read_link(&entry.path)?.into_os_string().into_vec();
-                target.truncate(255);
-                values.insert(Property::Target, jbk::Value::Array(target));
-                Some(jbk::creator::BasicEntry::new_from_schema(
-                    &self.entry_store.schema,
-                    Some(EntryType::Redirect),
-                    values,
-                ))
-            }
-            EntryKind::Other => unreachable!(),
-        };
-        if let Some(e) = new_entry {
-            if entry_path == self.main_entry_path {
-                self.main_entry_id = self.entry_count.into_u32().into();
-            }
-            self.entry_store.add_entry(e);
-            self.entry_count += 1;
-        }
-        Ok(())
-    }
+    let ret = creator.finalize(&out_file);
+    println!("Saved place is {}", progress.0.get());
+    ret
 }

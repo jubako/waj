@@ -1,7 +1,9 @@
 use jubako as jbk;
+use libwpack as wpack;
+
+mod create;
 
 use clap::{Args, Parser, Subcommand};
-use wpack::Creator;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -18,24 +20,10 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     #[clap(arg_required_else_help = true)]
-    Create(Create),
+    Create(create::Options),
 
     #[clap(arg_required_else_help = true)]
     Serve(Serve),
-}
-
-#[derive(Args)]
-struct Create {
-    // Input
-    #[clap(value_parser)]
-    infiles: Vec<PathBuf>,
-
-    // Archive name to create
-    #[clap(short, long, value_parser)]
-    outfile: PathBuf,
-
-    #[clap(short, long, value_parser)]
-    main_entry: PathBuf,
 }
 
 #[derive(Args)]
@@ -51,16 +39,7 @@ fn main() -> jbk::Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Create(cmd) => {
-            if args.verbose > 0 {
-                println!("Creating archive {:?}", cmd.outfile);
-                println!("With files {:?}", cmd.infiles);
-            }
-
-            let creator = Creator::new(&cmd.outfile, cmd.main_entry)?;
-            creator.run(cmd.outfile, cmd.infiles)
-        }
-
+        Commands::Create(options) => create::create(options, args.verbose),
         Commands::Serve(serve_cmd) => {
             if args.verbose > 0 {
                 println!(

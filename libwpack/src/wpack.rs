@@ -4,6 +4,8 @@ use jubako::reader::Range;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
+pub use jbk::SubReader as Reader;
+
 pub struct Wpack {
     container: jbk::reader::Container,
     pub(crate) root_index: jbk::reader::Index,
@@ -32,7 +34,7 @@ impl Wpack {
         let container = jbk::reader::Container::new(&file)?;
         let root_index = container
             .get_directory_pack()
-            .get_index_from_name("wpack_entries")?;
+            .get_index_from_name("wpack_root")?;
         let properties = create_properties(&container, &root_index)?;
         Ok(Self {
             container,
