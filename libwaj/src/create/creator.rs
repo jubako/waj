@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use super::{Adder, ConcatMode, EntryStoreCreator, FsAdder, Void};
 
-const VENDOR_ID: u32 = 0x6a_69_6d_00;
+const VENDOR_ID: u32 = 0x77_61_6a_00;
 
 pub struct ContentAdder {
     content_pack: jbk::creator::CachedContentPackCreator,
