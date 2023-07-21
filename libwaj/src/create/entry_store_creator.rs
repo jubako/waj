@@ -83,7 +83,7 @@ impl EntryStoreCreator {
         directory_pack.add_value_store(self.mime_store);
         let entry_store_id = directory_pack.add_entry_store(self.entry_store);
         directory_pack.create_index(
-            "wpack_entries",
+            "waj_entries",
             jubako::ContentAddress::new(0.into(), 0.into()),
             jbk::PropertyIdx::from(0),
             entry_store_id,
@@ -91,7 +91,7 @@ impl EntryStoreCreator {
             jubako::EntryIdx::from(0).into(),
         );
         directory_pack.create_index(
-            "wpack_main",
+            "waj_main",
             jubako::ContentAddress::new(0.into(), 0.into()),
             jbk::PropertyIdx::from(0),
             entry_store_id,
@@ -207,7 +207,7 @@ mod tests {
 
         let directory_pack =
             jbk::reader::DirectoryPack::new(jbk::creator::FileSource::open(&arx_file)?.into())?;
-        let index = directory_pack.get_index_from_name("wpack_entries")?;
+        let index = directory_pack.get_index_from_name("waj_entries")?;
         assert!(!index.is_empty());
         Ok(())
     }

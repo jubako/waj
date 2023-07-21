@@ -1,18 +1,18 @@
 [workspace]
-members = ["libwpack"]
+members = ["libwaj"]
 
 [workspace.package]
 edition = "2021"
 version = "0.1.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
-repository = "https://framagit.org/jubako/arx"
+repository = "https://framagit.org/jubako/waj"
 license = "MIT"
 
 [workspace.dependencies]
 jubako = { git = "https://framagit.org/jubako/jubako.git" }
 
 [package]
-name = "wpack"
+name = "waj"
 description = "Store a web site in a package"
 categories = ["command-line-utilities", "compression"]
 version.workspace = true
@@ -25,6 +25,6 @@ license.workspace = true
 
 [dependencies]
 clap = { version = "4.0.32", features = ["derive"] }
-libwpack = { path = "libwpack", version = "0.1.0" }
+libwaj = { path = "libwaj", version = "0.1.0" }
 jubako.workspace = true
 indicatif = "0.17.3"

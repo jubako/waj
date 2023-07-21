@@ -532,7 +532,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
 
 [[package]]
-name = "libwpack"
+name = "libwaj"
 version = "0.1.0"
 dependencies = [
  "blake3 1.4.0",
@@ -859,6 +859,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
+name = "waj"
+version = "0.1.0"
+dependencies = [
+ "clap 4.3.10",
+ "indicatif",
+ "jubako",
+ "libwaj",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1038,16 +1048,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 
 [[package]]
-name = "wpack"
-version = "0.1.0"
-dependencies = [
- "clap 4.3.10",
- "indicatif",
- "jubako",
- "libwpack",
-]
-
-[[package]]
 name = "zstd"
 version = "0.12.3+zstd.1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1078,6 +1078,10 @@ dependencies = [
 ]
 
 [[patch.unused]]
+name = "libarx"
+version = "0.2.0"
+
+[[patch.unused]]
 name = "arx"
 version = "0.2.0"
 
@@ -1085,7 +1089,3 @@ version = "0.2.0"
 name = "fuser"
 version = "0.12.0"
 source = "git+https://github.com/cberner/fuser.git#a9ddc8a7a8cd9f2ba6e7c3bc4c6a76ecad66e6b2"
-
-[[patch.unused]]
-name = "libarx"
-version = "0.2.0"

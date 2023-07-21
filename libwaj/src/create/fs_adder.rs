@@ -120,16 +120,16 @@ impl<'a> FsAdder<'a> {
         let walker = walker.into_iter();
         for entry in walker.filter_entry(filter) {
             let entry = entry.unwrap();
-            let wpack_path = entry
+            let waj_path = entry
                 .path()
                 .strip_prefix(self.strip_prefix)
                 .unwrap()
                 .as_os_str()
                 .to_os_string();
-            if wpack_path.is_empty() {
+            if waj_path.is_empty() {
                 continue;
             }
-            let entry = FsEntry::new_from_walk_entry(entry, wpack_path, adder)?;
+            let entry = FsEntry::new_from_walk_entry(entry, waj_path, adder)?;
             self.creator.add_entry(entry.as_ref())?;
         }
         Ok(())

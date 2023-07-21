@@ -1,6 +1,6 @@
 [package]
-name = "libwpack"
-description = "The library to handle wpack file, the pack format for web site."
+name = "libwaj"
+description = "The library to handle waj file, the pack format for web site."
 categories = ["compression"]
 version.workspace = true
 authors.workspace = true

@@ -1,5 +1,5 @@
 use jubako as jbk;
-use libwpack as wpack;
+use libwaj as waj;
 
 mod create;
 
@@ -7,7 +7,7 @@ use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[clap(name = "wpack")]
+#[clap(name = "waj")]
 #[clap(author, version, about, long_about=None)]
 struct Cli {
     #[clap(short, long, action=clap::ArgAction::Count)]
@@ -47,7 +47,7 @@ fn main() -> jbk::Result<()> {
                     serve_cmd.infile, serve_cmd.address,
                 );
             }
-            let server = wpack::Server::new(serve_cmd.infile)?;
+            let server = waj::Server::new(serve_cmd.infile)?;
             server.serve(&serve_cmd.address)
         }
     }

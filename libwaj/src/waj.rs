@@ -7,14 +7,14 @@ use std::path::Path;
 
 pub use jbk::SubReader as Reader;
 
-pub struct Wpack {
+pub struct Waj {
     container: jbk::reader::Container,
     pub(crate) root_index: jbk::reader::Index,
     pub main_entry_path: Vec<u8>,
     pub(crate) properties: AllProperties,
 }
 
-impl std::ops::Deref for Wpack {
+impl std::ops::Deref for Waj {
     type Target = jbk::reader::Container;
     fn deref(&self) -> &Self::Target {
         &self.container
@@ -54,17 +54,17 @@ impl Builder for PathBuilder {
 
 type FullPathBuilder = (PathBuilder, PathBuilder);
 
-impl Wpack {
+impl Waj {
     pub fn new<P: AsRef<Path>>(file: P) -> jbk::Result<Self> {
         let container = jbk::reader::Container::new(&file)?;
         let root_index = container
             .get_directory_pack()
-            .get_index_from_name("wpack_entries")?;
+            .get_index_from_name("waj_entries")?;
         let properties = create_properties(&container, &root_index)?;
 
         let main_index = container
             .get_directory_pack()
-            .get_index_from_name("wpack_main")?;
+            .get_index_from_name("waj_main")?;
         let main_index_properties = create_properties(&container, &main_index)?;
         let builder = RealBuilder::<FullPathBuilder>::new(&main_index_properties);
         let main_entry_path = match main_index.get_entry(&builder, 0.into())? {

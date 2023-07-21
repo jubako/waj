@@ -1,5 +1,5 @@
 use jubako as jbk;
-use libwpack as wpack;
+use libwaj as waj;
 
 use std::cell::Cell;
 use std::fs::File;
@@ -125,14 +125,14 @@ pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
     let out_file = std::env::current_dir()?.join(&options.outfile);
 
     let concat_mode = if options.one_file {
-        wpack::create::ConcatMode::OneFile
+        waj::create::ConcatMode::OneFile
     } else {
-        wpack::create::ConcatMode::TwoFiles
+        waj::create::ConcatMode::TwoFiles
     };
 
     let jbk_progress = Arc::new(ProgressBar::new());
     let progress = Rc::new(CachedSize::new());
-    let mut creator = wpack::create::FsCreator::new(
+    let mut creator = waj::create::FsCreator::new(
         &out_file,
         strip_prefix,
         options.main_entry.clone(),

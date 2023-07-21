@@ -1,5 +1,5 @@
 use crate::common::{AllProperties, Builder, Entry, Reader};
-use crate::Wpack;
+use crate::Waj;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
@@ -73,14 +73,14 @@ impl Builder for RedirectBuilder {
 type FullBuilder = (ContentBuilder, RedirectBuilder);
 
 pub struct Server {
-    wpack: Wpack,
+    waj: Waj,
 }
 
 impl Server {
     fn handle_get(&self, url: &str) -> jbk::Result<ResponseBox> {
         if url == "/" {
             let mut response = Response::empty(StatusCode(302));
-            let location = percent_encode(&self.wpack.main_entry_path, CONTROLS);
+            let location = percent_encode(&self.waj.main_entry_path, CONTROLS);
             response.add_header(Header {
                 field: "Location".parse().unwrap(),
                 value: location.to_string().parse().unwrap(),
@@ -89,10 +89,10 @@ impl Server {
         };
 
         for url in url_variants(&url[1..]) {
-            if let Ok(e) = self.wpack.get_entry::<FullBuilder, _>(&url) {
+            if let Ok(e) = self.waj.get_entry::<FullBuilder, _>(&url) {
                 match e {
                     Entry::Content(e) => {
-                        let reader = self.wpack.get_reader(e.content_address)?;
+                        let reader = self.waj.get_reader(e.content_address)?;
                         let mut response = Response::new(
                             StatusCode(200),
                             vec![],
@@ -122,9 +122,9 @@ impl Server {
     }
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
-        let wpack = Wpack::new(infile)?;
+        let waj = Waj::new(infile)?;
 
-        Ok(Self { wpack })
+        Ok(Self { waj })
     }
 
     pub fn serve(&self, address: &str) -> jbk::Result<()> {

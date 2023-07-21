@@ -1,5 +1,5 @@
 use super::common::*;
-use super::Wpack;
+use super::Waj;
 use jbk::reader::Range;
 use jubako as jbk;
 
@@ -19,23 +19,23 @@ pub trait Operator<Context, Builder: FullBuilderTrait> {
 }
 
 pub struct Walker<'a, Context> {
-    pack: &'a Wpack,
+    waj: &'a Waj,
     context: Context,
 }
 
 impl<'a, Context> Walker<'a, Context> {
-    pub fn new(pack: &'a Wpack, context: Context) -> Self {
-        Self { pack, context }
+    pub fn new(waj: &'a Waj, context: Context) -> Self {
+        Self { waj, context }
     }
 
     pub fn run<B>(&mut self, op: &dyn Operator<Context, B>) -> jbk::Result<()>
     where
         B: FullBuilderTrait,
     {
-        let builder = RealBuilder::<B>::new(&self.pack.properties);
+        let builder = RealBuilder::<B>::new(&self.waj.properties);
 
         op.on_start(&mut self.context)?;
-        self._run(&self.pack.root_index, &builder, op)?;
+        self._run(&self.waj.root_index, &builder, op)?;
         op.on_stop(&mut self.context)
     }
 
