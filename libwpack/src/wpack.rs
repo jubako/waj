@@ -1,7 +1,7 @@
-use super::common::{AllProperties, Comparator, Entry, FullBuilderTrait, RealBuilder, Builder};
+use super::common::{AllProperties, Builder, Comparator, Entry, FullBuilderTrait, RealBuilder};
+use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
 use jubako::reader::Range;
-use jbk::reader::builder::PropertyBuilderTrait;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
@@ -62,14 +62,15 @@ impl Wpack {
             .get_index_from_name("wpack_entries")?;
         let properties = create_properties(&container, &root_index)?;
 
-        let main_index = container.get_directory_pack().get_index_from_name("wpack_main")?;
+        let main_index = container
+            .get_directory_pack()
+            .get_index_from_name("wpack_main")?;
         let main_index_properties = create_properties(&container, &main_index)?;
         let builder = RealBuilder::<FullPathBuilder>::new(&main_index_properties);
-        let main_entry_path =
-            match main_index.get_entry(&builder, 0.into())? {
-                Entry::Content(p) => p,
-                Entry::Redirect(p) => p,
-            };
+        let main_entry_path = match main_index.get_entry(&builder, 0.into())? {
+            Entry::Content(p) => p,
+            Entry::Redirect(p) => p,
+        };
         Ok(Self {
             container,
             root_index,

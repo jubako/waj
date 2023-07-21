@@ -99,7 +99,7 @@ impl jbk::creator::Progress for ProgressBar {
 
 struct CachedSize(Cell<u64>);
 
-impl wpack::create::Progress for CachedSize {
+impl jbk::creator::CacheProgress for CachedSize {
     fn cached_data(&self, size: jbk::Size) {
         self.0.set(self.0.get() + size.into_u64());
     }
@@ -132,12 +132,13 @@ pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
 
     let jbk_progress = Arc::new(ProgressBar::new());
     let progress = Rc::new(CachedSize::new());
-    let mut creator = wpack::create::Creator::new(
+    let mut creator = wpack::create::FsCreator::new(
         &out_file,
+        strip_prefix,
         options.main_entry.clone(),
         concat_mode,
         jbk_progress,
-        Rc::clone(&progress) as Rc<dyn wpack::create::Progress>,
+        Rc::clone(&progress) as Rc<dyn jbk::creator::CacheProgress>,
     )?;
 
     let files_to_add = get_files_to_add(&options)?;
@@ -146,9 +147,8 @@ pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
         std::env::set_current_dir(base_dir)?;
     };
 
-    let mut adder = wpack::fs_adder::FsAdder::new(&mut creator, strip_prefix);
     for infile in files_to_add {
-        adder.add_from_path(infile, options.recurse)?;
+        creator.add_from_path(&infile, options.recurse)?;
     }
 
     let ret = creator.finalize(&out_file);

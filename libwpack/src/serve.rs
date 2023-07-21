@@ -124,9 +124,7 @@ impl Server {
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
         let wpack = Wpack::new(infile)?;
 
-        Ok(Self {
-            wpack,
-        })
+        Ok(Self { wpack })
     }
 
     pub fn serve(&self, address: &str) -> jbk::Result<()> {
