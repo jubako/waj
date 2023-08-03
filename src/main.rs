@@ -2,6 +2,7 @@ use jubako as jbk;
 use libwaj as waj;
 
 mod create;
+mod list;
 
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -24,6 +25,9 @@ enum Commands {
 
     #[clap(arg_required_else_help = true)]
     Serve(Serve),
+
+    #[clap(arg_required_else_help = true)]
+    List(list::Options),
 }
 
 #[derive(Args)]
@@ -50,5 +54,6 @@ fn main() -> jbk::Result<()> {
             let server = waj::Server::new(serve_cmd.infile)?;
             server.serve(&serve_cmd.address)
         }
+        Commands::List(options) => list::list(options),
     }
 }
