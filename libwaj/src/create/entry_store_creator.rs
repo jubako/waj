@@ -2,11 +2,9 @@ use jubako as jbk;
 
 use crate::common::{EntryType, Property};
 use jbk::creator::schema;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use super::{EntryKind, EntryTrait, Void};
 
@@ -20,28 +18,28 @@ type EntryIdx = jbk::Bound<jbk::EntryIdx>;
 
 pub struct EntryStoreCreator {
     entry_store: Box<EntryStore>,
-    path_store: Rc<RefCell<jbk::creator::ValueStore>>,
-    mime_store: Rc<RefCell<jbk::creator::ValueStore>>,
+    path_store: jbk::creator::StoreHandle,
+    mime_store: jbk::creator::StoreHandle,
     main_entry_path: PathBuf,
     main_entry_id: Option<EntryIdx>,
 }
 
 impl EntryStoreCreator {
     pub fn new(main_entry: PathBuf) -> Self {
-        let path_store = jbk::creator::ValueStore::new(jbk::creator::ValueStoreKind::Plain);
-        let mime_store = jbk::creator::ValueStore::new(jbk::creator::ValueStoreKind::Indexed);
+        let path_store = jbk::creator::ValueStore::new_plain(None);
+        let mime_store = jbk::creator::ValueStore::new_indexed();
 
         let schema = schema::Schema::new(
             // Common part
             schema::CommonProperties::new(vec![
-                schema::Property::new_array(1, Rc::clone(&path_store), Property::Path), // the path
+                schema::Property::new_array(1, path_store.clone(), Property::Path), // the path
             ]),
             vec![
                 // Content
                 (
                     EntryType::Content,
                     schema::VariantProperties::new(vec![
-                        schema::Property::new_array(0, Rc::clone(&mime_store), Property::Mimetype), // the mimetype
+                        schema::Property::new_array(0, mime_store.clone(), Property::Mimetype), // the mimetype
                         schema::Property::new_content_address(Property::Content),
                     ]),
                 ),
@@ -49,14 +47,14 @@ impl EntryStoreCreator {
                 (
                     EntryType::Redirect,
                     schema::VariantProperties::new(vec![
-                        schema::Property::new_array(0, Rc::clone(&path_store), Property::Target), // Id of the linked entry
+                        schema::Property::new_array(0, path_store.clone(), Property::Target), // Id of the linked entry
                     ]),
                 ),
             ],
             Some(vec![Property::Path]),
         );
 
-        let entry_store = Box::new(EntryStore::new(schema));
+        let entry_store = Box::new(EntryStore::new(schema, None));
 
         Self {
             entry_store,
@@ -84,7 +82,7 @@ impl EntryStoreCreator {
         let entry_store_id = directory_pack.add_entry_store(self.entry_store);
         directory_pack.create_index(
             "waj_entries",
-            jubako::ContentAddress::new(0.into(), 0.into()),
+            Default::default(),
             jbk::PropertyIdx::from(0),
             entry_store_id,
             jbk::EntryCount::from(entry_count as u32),
@@ -92,7 +90,7 @@ impl EntryStoreCreator {
         );
         directory_pack.create_index(
             "waj_main",
-            jubako::ContentAddress::new(0.into(), 0.into()),
+            Default::default(),
             jbk::PropertyIdx::from(0),
             entry_store_id,
             jubako::EntryCount::from(1),
@@ -152,18 +150,11 @@ mod tests {
     use super::*;
     use jubako as jbk;
     use mime_guess::mime;
-    use std::path::Path;
 
     #[test]
     fn test_empty() -> jbk::Result<()> {
-        let arx_file =
-            tempfile::TempPath::from_path(Path::new(&std::env::temp_dir()).join("test_empty.arx"));
-        let mut creator = jbk::creator::DirectoryPackCreator::new(
-            &arx_file,
-            jbk::PackId::from(0),
-            0,
-            jbk::FreeData31::clone_from_slice(&[0x00; 31]),
-        );
+        let mut creator =
+            jbk::creator::DirectoryPackCreator::new(jbk::PackId::from(0), 0, Default::default());
 
         let entry_store_creator = EntryStoreCreator::new("".into());
         assert!(entry_store_creator.finalize(&mut creator).is_err());
@@ -187,26 +178,20 @@ mod tests {
 
     #[test]
     fn test_one_content() -> jbk::Result<()> {
-        let arx_file = tempfile::TempPath::from_path(
-            Path::new(&std::env::temp_dir()).join("test_one_content.arx"),
-        );
-
-        let mut creator = jbk::creator::DirectoryPackCreator::new(
-            &arx_file,
-            jbk::PackId::from(0),
-            0,
-            jbk::FreeData31::clone_from_slice(&[0x00; 31]),
-        );
+        let waj_file = tempfile::NamedTempFile::new_in(&std::env::temp_dir())?;
+        let (mut waj_file, waj_name) = waj_file.into_parts();
+        let mut creator =
+            jbk::creator::DirectoryPackCreator::new(jbk::PackId::from(0), 0, Default::default());
 
         let mut entry_store_creator = EntryStoreCreator::new("foo.txt".into());
         let entry = SimpleEntry("foo.txt".into());
         entry_store_creator.add_entry(&entry)?;
         entry_store_creator.finalize(&mut creator)?;
-        creator.finalize(Some(arx_file.to_path_buf()))?;
-        assert!(arx_file.is_file());
+        creator.finalize(&mut waj_file)?;
+        assert!(waj_name.is_file());
 
         let directory_pack =
-            jbk::reader::DirectoryPack::new(jbk::creator::FileSource::open(&arx_file)?.into())?;
+            jbk::reader::DirectoryPack::new(jbk::creator::FileSource::open(waj_name)?.into())?;
         let index = directory_pack.get_index_from_name("waj_entries")?;
         assert!(!index.is_empty());
         Ok(())
