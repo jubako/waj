@@ -3,15 +3,27 @@ use crate::Waj;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
+use std::borrow::Cow;
 use std::net::ToSocketAddrs;
+use std::ops::Deref;
 use std::path::Path;
 use tiny_http::*;
 
-fn url_variants(url: &str) -> Vec<&str> {
-    let mut vec = vec![];
-    vec.push(url);
-    if let Some(idx) = url.find('?') {
-        vec.push(&url[..idx])
+fn url_variants(url: &str) -> Vec<Cow<str>> {
+    let mut vec: Vec<Cow<str>> = vec![];
+    vec.push(url.into());
+    let query_string_idx = url.find('?');
+    if let Some(idx) = query_string_idx {
+        vec.push(url[..idx].into())
+    }
+    let end_idx = match query_string_idx {
+        Some(idx) => idx,
+        None => url.len(),
+    };
+    if url[..end_idx].ends_with('/') {
+        let mut new_url = String::from(&url[..end_idx]);
+        new_url.push_str("index.html");
+        vec.push(new_url.into());
     }
     vec
 }
@@ -89,7 +101,7 @@ impl Server {
         };
 
         for url in url_variants(&url[1..]) {
-            if let Ok(e) = self.waj.get_entry::<FullBuilder, _>(&url) {
+            if let Ok(e) = self.waj.get_entry::<FullBuilder, _>(&url.deref()) {
                 match e {
                     Entry::Content(e) => {
                         let reader = self.waj.get_reader(e.content_address)?;
