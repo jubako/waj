@@ -2,6 +2,7 @@ use crate::common::{AllProperties, Builder, Entry, Reader};
 use crate::Waj;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
+use log::{debug, error, info, trace};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
 use std::net::ToSocketAddrs;
@@ -102,6 +103,7 @@ impl Server {
 
         for url in url_variants(&url[1..]) {
             if let Ok(e) = self.waj.get_entry::<FullBuilder, _>(&url.deref()) {
+                trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {
                         let reader = self.waj.get_reader(e.content_address)?;
@@ -130,6 +132,7 @@ impl Server {
                 }
             }
         }
+        info!("{url} not found");
         Ok(Response::empty(StatusCode(404)).boxed())
     }
 
@@ -141,13 +144,13 @@ impl Server {
 
     pub fn serve(&self, address: &str) -> jbk::Result<()> {
         let addr = address.to_socket_addrs().unwrap().next().unwrap();
-        println!("Serving on address {addr}");
+        info!("Serving on address {addr}");
         let server = tiny_http::Server::http(addr).unwrap();
 
         loop {
             let request = match server.recv() {
                 Err(e) => {
-                    println!("error {e}");
+                    info!("error {e}");
                     break;
                 }
                 Ok(rq) => rq,
@@ -157,17 +160,24 @@ impl Server {
                 .decode_utf8()
                 .unwrap();
 
+            let now = std::time::Instant::now();
+
+            trace!("{}: {url}", request.method());
+
             let ret = match request.method() {
                 Method::Get => self.handle_get(&url),
                 _ => Err("Not a valid request".into()),
             };
 
+            let elapsed_time = now.elapsed();
+
             match ret {
                 Err(e) => {
-                    println!("Error : {e}");
+                    error!("[{}µs] Error : {e}", elapsed_time.as_micros());
                     request.respond(Response::empty(StatusCode(500))).unwrap();
                 }
                 Ok(response) => {
+                    trace!("[{}µs] Ok", elapsed_time.as_micros());
                     request.respond(response).unwrap();
                 }
             }
