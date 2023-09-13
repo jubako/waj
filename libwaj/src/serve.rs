@@ -133,7 +133,23 @@ impl Server {
             }
         }
         info!("{url} not found");
-        Ok(Response::empty(StatusCode(404)).boxed())
+        if let Ok(Entry::Content(e)) = self.waj.get_entry::<FullBuilder, _>("404.html") {
+            let reader = self.waj.get_reader(e.content_address)?;
+            let mut response = Response::new(
+                StatusCode(404),
+                vec![],
+                reader.create_flux_all().to_owned(),
+                Some(reader.size().into_usize()),
+                None,
+            );
+            response.add_header(Header {
+                field: "Content-Type".parse().unwrap(),
+                value: String::from_utf8(e.mimetype)?.parse().unwrap(),
+            });
+            Ok(response.boxed())
+        } else {
+            Ok(Response::empty(StatusCode(404)).boxed())
+        }
     }
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
