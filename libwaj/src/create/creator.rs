@@ -1,11 +1,12 @@
 use jubako as jbk;
 
-use jbk::creator::OutStream;
 use std::io::Seek;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+use jbk::creator::OutStream;
 
 use super::{Adder, ConcatMode, EntryStoreCreator, FsAdder, Void};
 

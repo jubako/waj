@@ -13,6 +13,7 @@ use std::sync::Arc;
 use tiny_http::*;
 
 fn url_variants(url: &str) -> Vec<Cow<str>> {
+    let url = url.strip_prefix('/').unwrap_or(url);
     let mut vec: Vec<Cow<str>> = vec![];
     vec.push(url.into());
     let query_string_idx = url.find('?');

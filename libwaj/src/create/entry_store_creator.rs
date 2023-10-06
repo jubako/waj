@@ -47,7 +47,7 @@ impl EntryStoreCreator {
                 (
                     EntryType::Redirect,
                     schema::VariantProperties::new(vec![
-                        schema::Property::new_array(0, path_store.clone(), Property::Target), // Id of the linked entry
+                        schema::Property::new_array(1, path_store.clone(), Property::Target), // Id of the linked entry
                     ]),
                 ),
             ],
@@ -113,6 +113,7 @@ impl EntryStoreCreator {
             Property::Path,
             jbk::Value::Array(entry.name().to_os_string().into_vec()),
         )]);
+        //println!("{:?}", entry.name());
         let is_main_entry = entry.name() == self.main_entry_path;
         let entry = Box::new(match entry_kind {
             EntryKind::Content(content_address, mimetype) => {
