@@ -10,11 +10,10 @@ fn test_empty() {
     let creator = libwaj::create::FsCreator::new(
         &waj_file,
         "".into(),
-        "main_page".into(),
         libwaj::create::ConcatMode::OneFile,
         Arc::new(()),
         Rc::new(()),
     )
     .unwrap();
-    assert!(creator.finalize(&waj_file).is_err());
+    assert!(creator.finalize(&waj_file).is_ok());
 }

@@ -30,9 +30,6 @@ pub struct Options {
     #[clap(short, long, required = false, default_value_t = false, action)]
     recurse: bool,
 
-    #[clap(short, long, value_parser)]
-    main_entry: PathBuf,
-
     #[clap(short = '1', long, required = false, default_value_t = false, action)]
     one_file: bool,
 }
@@ -135,7 +132,6 @@ pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
     let mut creator = waj::create::FsCreator::new(
         &out_file,
         strip_prefix,
-        options.main_entry.clone(),
         concat_mode,
         jbk_progress,
         Rc::clone(&progress) as Rc<dyn jbk::creator::CacheProgress>,

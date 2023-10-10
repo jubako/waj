@@ -47,7 +47,6 @@ impl FsCreator {
     pub fn new<P: AsRef<Path>>(
         outfile: P,
         strip_prefix: PathBuf,
-        main_path: PathBuf,
         concat_mode: ConcatMode,
         progress: Arc<dyn jbk::creator::Progress>,
         cache_progress: Rc<dyn jbk::creator::CacheProgress>,
@@ -72,7 +71,7 @@ impl FsCreator {
             Default::default(),
         );
 
-        let entry_store_creator = EntryStoreCreator::new(main_path);
+        let entry_store_creator = EntryStoreCreator::new(None);
 
         Ok(Self {
             adder: ContentAdder::new(jbk::creator::CachedContentPackCreator::new(

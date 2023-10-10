@@ -10,7 +10,6 @@ pub use jbk::SubReader as Reader;
 pub struct Waj {
     container: jbk::reader::Container,
     pub(crate) root_index: jbk::reader::Index,
-    pub main_entry_path: Vec<u8>,
     pub(crate) properties: AllProperties,
 }
 
@@ -52,8 +51,6 @@ impl Builder for PathBuilder {
     }
 }
 
-type FullPathBuilder = (PathBuilder, PathBuilder);
-
 impl Waj {
     pub fn new<P: AsRef<Path>>(file: P) -> jbk::Result<Self> {
         let container = jbk::reader::Container::new(&file)?;
@@ -62,19 +59,9 @@ impl Waj {
             .get_index_from_name("waj_entries")?;
         let properties = create_properties(&container, &root_index)?;
 
-        let main_index = container
-            .get_directory_pack()
-            .get_index_from_name("waj_main")?;
-        let main_index_properties = create_properties(&container, &main_index)?;
-        let builder = RealBuilder::<FullPathBuilder>::new(&main_index_properties);
-        let main_entry_path = match main_index.get_entry(&builder, 0.into())? {
-            Entry::Content(p) => p,
-            Entry::Redirect(p) => p,
-        };
         Ok(Self {
             container,
             root_index,
-            main_entry_path,
             properties,
         })
     }

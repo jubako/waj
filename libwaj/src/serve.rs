@@ -94,16 +94,6 @@ pub struct Server {
 
 impl Server {
     fn handle_get(waj: &Waj, url: &str) -> jbk::Result<ResponseBox> {
-        if url == "/" {
-            let mut response = Response::empty(StatusCode(302));
-            let location = percent_encode(&waj.main_entry_path, CONTROLS);
-            response.add_header(Header {
-                field: "Location".parse().unwrap(),
-                value: location.to_string().parse().unwrap(),
-            });
-            return Ok(response.boxed());
-        };
-
         for url in url_variants(&url[1..]) {
             if let Ok(e) = waj.get_entry::<FullBuilder, _>(&url.deref()) {
                 trace!(" => {url}");

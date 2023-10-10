@@ -4,7 +4,6 @@ use crate::common::{EntryType, Property};
 use jbk::creator::schema;
 use std::collections::HashMap;
 use std::os::unix::ffi::OsStringExt;
-use std::path::PathBuf;
 
 use super::{EntryKind, EntryTrait, Void};
 
@@ -14,19 +13,15 @@ type EntryStore = jbk::creator::EntryStore<
     Box<jbk::creator::BasicEntry<Property, EntryType>>,
 >;
 
-type EntryIdx = jbk::Bound<jbk::EntryIdx>;
-
 pub struct EntryStoreCreator {
     entry_store: Box<EntryStore>,
     path_store: jbk::creator::StoreHandle,
     mime_store: jbk::creator::StoreHandle,
-    main_entry_path: PathBuf,
-    main_entry_id: Option<EntryIdx>,
 }
 
 impl EntryStoreCreator {
-    pub fn new(main_entry: PathBuf) -> Self {
-        let path_store = jbk::creator::ValueStore::new_plain(None);
+    pub fn new(size_hint: Option<usize>) -> Self {
+        let path_store = jbk::creator::ValueStore::new_plain(size_hint);
         let mime_store = jbk::creator::ValueStore::new_indexed();
 
         let schema = schema::Schema::new(
@@ -54,28 +49,16 @@ impl EntryStoreCreator {
             Some(vec![Property::Path]),
         );
 
-        let entry_store = Box::new(EntryStore::new(schema, None));
+        let entry_store = Box::new(EntryStore::new(schema, size_hint));
 
         Self {
             entry_store,
             path_store,
             mime_store,
-            main_entry_path: main_entry,
-            main_entry_id: Default::default(),
         }
     }
 
     pub fn finalize(self, directory_pack: &mut jbk::creator::DirectoryPackCreator) -> Void {
-        let main_entry_id = match self.main_entry_id {
-            Some(id) => id,
-            None => {
-                return Err(format!(
-                    "No entry found for the main entry ({})",
-                    self.main_entry_path.display()
-                )
-                .into())
-            }
-        };
         let entry_count = self.entry_store.len();
         directory_pack.add_value_store(self.path_store);
         directory_pack.add_value_store(self.mime_store);
@@ -87,14 +70,6 @@ impl EntryStoreCreator {
             entry_store_id,
             jbk::EntryCount::from(entry_count as u32),
             jubako::EntryIdx::from(0).into(),
-        );
-        directory_pack.create_index(
-            "waj_main",
-            Default::default(),
-            jbk::PropertyIdx::from(0),
-            entry_store_id,
-            jubako::EntryCount::from(1),
-            main_entry_id.into(),
         );
         Ok(())
     }
@@ -114,7 +89,6 @@ impl EntryStoreCreator {
             jbk::Value::Array(entry.name().to_os_string().into_vec()),
         )]);
         //println!("{:?}", entry.name());
-        let is_main_entry = entry.name() == self.main_entry_path;
         let entry = Box::new(match entry_kind {
             EntryKind::Content(content_address, mimetype) => {
                 values.insert(Property::Content, jbk::Value::Content(content_address));
@@ -137,10 +111,7 @@ impl EntryStoreCreator {
                 )
             }
         });
-        let entry_idx = self.entry_store.add_entry(entry);
-        if is_main_entry {
-            self.main_entry_id = Some(entry_idx);
-        }
+        self.entry_store.add_entry(entry);
         Ok(())
     }
 }
@@ -157,8 +128,8 @@ mod tests {
         let mut creator =
             jbk::creator::DirectoryPackCreator::new(jbk::PackId::from(0), 0, Default::default());
 
-        let entry_store_creator = EntryStoreCreator::new("".into());
-        assert!(entry_store_creator.finalize(&mut creator).is_err());
+        let entry_store_creator = EntryStoreCreator::new(None);
+        assert!(entry_store_creator.finalize(&mut creator).is_ok());
         Ok(())
     }
 
@@ -184,7 +155,7 @@ mod tests {
         let mut creator =
             jbk::creator::DirectoryPackCreator::new(jbk::PackId::from(0), 0, Default::default());
 
-        let mut entry_store_creator = EntryStoreCreator::new("foo.txt".into());
+        let mut entry_store_creator = EntryStoreCreator::new(None);
         let entry = SimpleEntry("foo.txt".into());
         entry_store_creator.add_entry(&entry)?;
         entry_store_creator.finalize(&mut creator)?;
