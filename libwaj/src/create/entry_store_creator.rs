@@ -7,7 +7,7 @@ use std::os::unix::ffi::OsStringExt;
 
 use super::{EntryKind, EntryTrait, Void};
 
-type EntryStore = jbk::creator::EntryStore<Property, EntryType, Entry>;
+type EntryStore = jbk::creator::EntryStore<Property, EntryType, Box<Entry>>;
 
 pub struct EntryStoreCreator {
     entry_store: Box<EntryStore>,
@@ -95,7 +95,7 @@ impl EntryStoreCreator {
                 Entry::new_redirect(path, target)
             }
         };
-        self.entry_store.add_entry(entry);
+        self.entry_store.add_entry(Box::new(entry));
         Ok(())
     }
 }
