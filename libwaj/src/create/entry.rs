@@ -10,9 +10,9 @@ pub struct Path1 {
 impl Path1 {
     pub fn new(mut path: Vec<u8>, value_store: &creator::StoreHandle) -> Self {
         //        println!("Add path {path:?}");
-        let prefix = path.first().copied().unwrap_or(0);
         let size = path.len() as u16;
-        let value_id = value_store.add_value(path.split_off(std::cmp::min(1, path.len())));
+        let prefix = if size == 0 { 0 } else { path.remove(0) };
+        let value_id = value_store.add_value(path);
         Self {
             prefix,
             size,
