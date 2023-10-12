@@ -152,4 +152,31 @@ impl jubako::creator::EntryTrait<Property, EntryType> for Entry {
     }
 }
 
-impl jubako::creator::FullEntryTrait<Property, EntryType> for Entry {}
+impl jubako::creator::FullEntryTrait<Property, EntryType> for Entry {
+    fn compare<'i, I>(&self, sort_keys: &'i I, other: &Self) -> std::cmp::Ordering
+    where
+        I: IntoIterator<Item = &'i Property> + Copy,
+    {
+        use std::cmp;
+        let mut iter = sort_keys.into_iter();
+        assert_eq!(iter.next(), Some(&Property::Path));
+        assert_eq!(iter.next(), None);
+        let (entry_prefix, entry_size, entry_value_id) = match self {
+            Self::Content(e) => (&e.path_prefix, &e.path_size, &e.path_value_id),
+            Self::Redirect(e) => (&e.path_prefix, &e.path_size, &e.path_value_id),
+        };
+        let (other_prefix, other_size, other_value_id) = match &other {
+            Self::Content(e) => (&e.path_prefix, &e.path_size, &e.path_value_id),
+            Self::Redirect(e) => (&e.path_prefix, &e.path_size, &e.path_value_id),
+        };
+        match entry_prefix.cmp(other_prefix) {
+            cmp::Ordering::Less => cmp::Ordering::Less,
+            cmp::Ordering::Greater => cmp::Ordering::Greater,
+            cmp::Ordering::Equal => match entry_value_id.get().cmp(&other_value_id.get()) {
+                cmp::Ordering::Less => cmp::Ordering::Less,
+                cmp::Ordering::Greater => cmp::Ordering::Greater,
+                cmp::Ordering::Equal => entry_size.cmp(other_size),
+            },
+        }
+    }
+}
