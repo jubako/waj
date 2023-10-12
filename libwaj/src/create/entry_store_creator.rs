@@ -17,7 +17,7 @@ pub struct EntryStoreCreator {
 
 impl EntryStoreCreator {
     pub fn new(size_hint: Option<usize>) -> Self {
-        let path_store = jbk::creator::ValueStore::new_plain(size_hint);
+        let path_store = jbk::creator::ValueStore::new_plain(size_hint.map(|s| s * 2));
         let mime_store = jbk::creator::ValueStore::new_indexed();
 
         let schema = schema::Schema::new(
