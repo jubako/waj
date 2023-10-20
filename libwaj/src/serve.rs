@@ -1,7 +1,6 @@
-use crate::common::{AllProperties, Builder, Entry, Reader, RealBuilder};
-use crate::Jim;
+use crate::common::{AllProperties, Builder, Entry, Reader};
+use crate::Waj;
 use jbk::reader::builder::PropertyBuilderTrait;
-use jbk::reader::Range;
 use jubako as jbk;
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::net::ToSocketAddrs;
@@ -73,39 +72,15 @@ impl Builder for RedirectBuilder {
 
 type FullBuilder = (ContentBuilder, RedirectBuilder);
 
-struct PathBuilder {
-    path_property: jbk::reader::builder::ArrayProperty,
-}
-
-impl Builder for PathBuilder {
-    type Entry = Vec<u8>;
-
-    fn new(properties: &AllProperties) -> Self {
-        Self {
-            path_property: properties.path_property.clone(),
-        }
-    }
-
-    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
-        let path_prop = self.path_property.create(reader)?;
-        let mut path = vec![];
-        path_prop.resolve_to_vec(&mut path)?;
-        Ok(path)
-    }
-}
-
-type FullPathBuilder = (PathBuilder, PathBuilder);
-
 pub struct Server {
-    main_entry_path: String,
-    jim: Jim,
+    waj: Waj,
 }
 
 impl Server {
     fn handle_get(&self, url: &str) -> jbk::Result<ResponseBox> {
         if url == "/" {
             let mut response = Response::empty(StatusCode(302));
-            let location = percent_encode(self.main_entry_path.as_bytes(), CONTROLS);
+            let location = percent_encode(&self.waj.main_entry_path, CONTROLS);
             response.add_header(Header {
                 field: "Location".parse().unwrap(),
                 value: location.to_string().parse().unwrap(),
@@ -114,10 +89,10 @@ impl Server {
         };
 
         for url in url_variants(&url[1..]) {
-            if let Ok(e) = self.jim.get_entry::<FullBuilder, _>(&url) {
+            if let Ok(e) = self.waj.get_entry::<FullBuilder, _>(&url) {
                 match e {
                     Entry::Content(e) => {
-                        let reader = self.jim.get_reader(e.content_address)?;
+                        let reader = self.waj.get_reader(e.content_address)?;
                         let mut response = Response::new(
                             StatusCode(200),
                             vec![],
@@ -147,22 +122,9 @@ impl Server {
     }
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
-        let jim = Jim::new(infile)?;
-        // We have to found the main entry..
+        let waj = Waj::new(infile)?;
 
-        let main_index = jim.get_index_for_name("jim_main")?;
-        let properties = jim.create_properties(&main_index)?;
-        let builder = RealBuilder::<FullPathBuilder>::new(&properties);
-        let main_entry_path =
-            String::from_utf8(match main_index.get_entry(&builder, 0.into())? {
-                Entry::Content(p) => p,
-                Entry::Redirect(p) => p,
-            })?;
-
-        Ok(Self {
-            jim,
-            main_entry_path,
-        })
+        Ok(Self { waj })
     }
 
     pub fn serve(&self, address: &str) -> jbk::Result<()> {

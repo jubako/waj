@@ -1,16 +1,20 @@
-use super::common::{AllProperties, Comparator, Entry, FullBuilderTrait, RealBuilder};
+use super::common::{AllProperties, Builder, Comparator, Entry, FullBuilderTrait, RealBuilder};
+use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
 use jubako::reader::Range;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
-pub struct Jim {
+pub use jbk::SubReader as Reader;
+
+pub struct Waj {
     container: jbk::reader::Container,
     pub(crate) root_index: jbk::reader::Index,
+    pub main_entry_path: Vec<u8>,
     pub(crate) properties: AllProperties,
 }
 
-impl std::ops::Deref for Jim {
+impl std::ops::Deref for Waj {
     type Target = jbk::reader::Container;
     fn deref(&self) -> &Self::Target {
         &self.container
@@ -27,16 +31,50 @@ fn create_properties(
     )
 }
 
-impl Jim {
+struct PathBuilder {
+    path_property: jbk::reader::builder::ArrayProperty,
+}
+
+impl Builder for PathBuilder {
+    type Entry = Vec<u8>;
+
+    fn new(properties: &AllProperties) -> Self {
+        Self {
+            path_property: properties.path_property.clone(),
+        }
+    }
+
+    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+        let path_prop = self.path_property.create(reader)?;
+        let mut path = vec![];
+        path_prop.resolve_to_vec(&mut path)?;
+        Ok(path)
+    }
+}
+
+type FullPathBuilder = (PathBuilder, PathBuilder);
+
+impl Waj {
     pub fn new<P: AsRef<Path>>(file: P) -> jbk::Result<Self> {
         let container = jbk::reader::Container::new(&file)?;
         let root_index = container
             .get_directory_pack()
-            .get_index_from_name("jim_entries")?;
+            .get_index_from_name("waj_entries")?;
         let properties = create_properties(&container, &root_index)?;
+
+        let main_index = container
+            .get_directory_pack()
+            .get_index_from_name("waj_main")?;
+        let main_index_properties = create_properties(&container, &main_index)?;
+        let builder = RealBuilder::<FullPathBuilder>::new(&main_index_properties);
+        let main_entry_path = match main_index.get_entry(&builder, 0.into())? {
+            Entry::Content(p) => p,
+            Entry::Redirect(p) => p,
+        };
         Ok(Self {
             container,
             root_index,
+            main_entry_path,
             properties,
         })
     }
