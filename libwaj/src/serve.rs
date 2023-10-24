@@ -8,6 +8,8 @@ use std::borrow::Cow;
 use std::net::ToSocketAddrs;
 use std::ops::Deref;
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tiny_http::*;
 
 fn url_variants(url: &str) -> Vec<Cow<str>> {
@@ -86,14 +88,14 @@ impl Builder for RedirectBuilder {
 type FullBuilder = (ContentBuilder, RedirectBuilder);
 
 pub struct Server {
-    waj: Waj,
+    waj: Arc<Waj>,
 }
 
 impl Server {
-    fn handle_get(&self, url: &str) -> jbk::Result<ResponseBox> {
+    fn handle_get(waj: &Waj, url: &str) -> jbk::Result<ResponseBox> {
         if url == "/" {
             let mut response = Response::empty(StatusCode(302));
-            let location = percent_encode(&self.waj.main_entry_path, CONTROLS);
+            let location = percent_encode(&waj.main_entry_path, CONTROLS);
             response.add_header(Header {
                 field: "Location".parse().unwrap(),
                 value: location.to_string().parse().unwrap(),
@@ -102,11 +104,11 @@ impl Server {
         };
 
         for url in url_variants(&url[1..]) {
-            if let Ok(e) = self.waj.get_entry::<FullBuilder, _>(&url.deref()) {
+            if let Ok(e) = waj.get_entry::<FullBuilder, _>(&url.deref()) {
                 trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {
-                        let reader = self.waj.get_reader(e.content_address)?;
+                        let reader = waj.get_reader(e.content_address)?;
                         let mut response = Response::new(
                             StatusCode(200),
                             vec![],
@@ -133,8 +135,8 @@ impl Server {
             }
         }
         info!("{url} not found");
-        if let Ok(Entry::Content(e)) = self.waj.get_entry::<FullBuilder, _>("404.html") {
-            let reader = self.waj.get_reader(e.content_address)?;
+        if let Ok(Entry::Content(e)) = waj.get_entry::<FullBuilder, _>("404.html") {
+            let reader = waj.get_reader(e.content_address)?;
             let mut response = Response::new(
                 StatusCode(404),
                 vec![],
@@ -153,7 +155,7 @@ impl Server {
     }
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
-        let waj = Waj::new(infile)?;
+        let waj = Arc::new(Waj::new(infile)?);
 
         Ok(Self { waj })
     }
@@ -161,43 +163,64 @@ impl Server {
     pub fn serve(&self, address: &str) -> jbk::Result<()> {
         let addr = address.to_socket_addrs().unwrap().next().unwrap();
         info!("Serving on address {addr}");
-        let server = tiny_http::Server::http(addr).unwrap();
+        let server = Arc::new(tiny_http::Server::http(addr).unwrap());
+        let mut guards = Vec::with_capacity(4);
+        let next_request_id = Arc::new(AtomicUsize::new(0));
 
-        loop {
-            let request = match server.recv() {
-                Err(e) => {
-                    info!("error {e}");
-                    break;
+        for _ in 0..4 {
+            let server = server.clone();
+            let waj = self.waj.clone();
+            let next_request_id = next_request_id.clone();
+
+            let guard = std::thread::spawn(move || loop {
+                let request = match server.recv() {
+                    Err(e) => {
+                        info!("error {e}");
+                        break;
+                    }
+                    Ok(rq) => rq,
+                };
+
+                trace!("Get req {request:?}");
+                let request_id = next_request_id.fetch_add(1, Ordering::Relaxed);
+
+                let url = percent_decode(request.url().as_bytes())
+                    .decode_utf8()
+                    .unwrap();
+
+                let now = std::time::Instant::now();
+
+                trace!("[{request_id}] : {} {url}", request.method());
+
+                let ret = match request.method() {
+                    Method::Get => Self::handle_get(&waj, &url),
+                    _ => Err("Not a valid request".into()),
+                };
+
+                let elapsed_time = now.elapsed();
+
+                match ret {
+                    Err(e) => {
+                        error!(
+                            "[{request_id} {}µs {url}] Error : {e}",
+                            elapsed_time.as_micros()
+                        );
+                        request.respond(Response::empty(StatusCode(500))).unwrap();
+                    }
+                    Ok(response) => {
+                        trace!("[{request_id} {}µs {url}] Ok", elapsed_time.as_micros());
+                        request.respond(response).unwrap();
+                    }
                 }
-                Ok(rq) => rq,
-            };
+            });
 
-            let url = percent_decode(request.url().as_bytes())
-                .decode_utf8()
-                .unwrap();
-
-            let now = std::time::Instant::now();
-
-            trace!("{}: {url}", request.method());
-
-            let ret = match request.method() {
-                Method::Get => self.handle_get(&url),
-                _ => Err("Not a valid request".into()),
-            };
-
-            let elapsed_time = now.elapsed();
-
-            match ret {
-                Err(e) => {
-                    error!("[{}µs] Error : {e}", elapsed_time.as_micros());
-                    request.respond(Response::empty(StatusCode(500))).unwrap();
-                }
-                Ok(response) => {
-                    trace!("[{}µs] Ok", elapsed_time.as_micros());
-                    request.respond(response).unwrap();
-                }
-            }
+            guards.push(guard);
         }
+
+        for guard in guards {
+            guard.join().unwrap();
+        }
+
         Ok(())
     }
 }
