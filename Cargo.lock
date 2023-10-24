@@ -430,6 +430,7 @@ dependencies = [
  "lru 0.8.1",
  "mime_guess",
  "percent-encoding",
+ "static_assertions",
  "tempfile",
  "tiny_http",
  "typenum",

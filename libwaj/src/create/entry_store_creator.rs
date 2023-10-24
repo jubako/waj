@@ -1,17 +1,13 @@
 use jubako as jbk;
 
+use super::entry::{Entry, Path1};
 use crate::common::{EntryType, Property};
 use jbk::creator::schema;
-use std::collections::HashMap;
 use std::os::unix::ffi::OsStringExt;
 
 use super::{EntryKind, EntryTrait, Void};
 
-type EntryStore = jbk::creator::EntryStore<
-    Property,
-    EntryType,
-    Box<jbk::creator::BasicEntry<Property, EntryType>>,
->;
+type EntryStore = jbk::creator::EntryStore<Property, EntryType, Entry>;
 
 pub struct EntryStoreCreator {
     entry_store: Box<EntryStore>,
@@ -84,33 +80,21 @@ impl EntryStoreCreator {
                 return Ok(());
             }
         };
-        let mut values = HashMap::from([(
-            Property::Path,
-            jbk::Value::Array(entry.name().to_os_string().into_vec()),
-        )]);
+        //let idx = jbk::Vow::new(0);
+        let path = entry.name().to_os_string().into_vec();
+        let path = Path1::new(path, &self.path_store);
         //println!("{:?}", entry.name());
-        let entry = Box::new(match entry_kind {
+        let entry = match entry_kind {
             EntryKind::Content(content_address, mimetype) => {
-                values.insert(Property::Content, jbk::Value::Content(content_address));
-                values.insert(
-                    Property::Mimetype,
-                    jbk::Value::Array(mimetype.to_string().into()),
-                );
-                jbk::creator::BasicEntry::new_from_schema(
-                    &self.entry_store.schema,
-                    Some(EntryType::Content),
-                    values,
-                )
+                let mime_id = self.mime_store.add_value(mimetype.to_string().into());
+                Entry::new_content(path, mime_id, content_address)
             }
             EntryKind::Redirect(target) => {
-                values.insert(Property::Target, jbk::Value::Array(target.into_vec()));
-                jbk::creator::BasicEntry::new_from_schema(
-                    &self.entry_store.schema,
-                    Some(EntryType::Redirect),
-                    values,
-                )
+                let target = target.into_vec();
+                let target = Path1::new(target, &self.path_store);
+                Entry::new_redirect(path, target)
             }
-        });
+        };
         self.entry_store.add_entry(entry);
         Ok(())
     }

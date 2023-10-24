@@ -1,4 +1,5 @@
 mod creator;
+mod entry;
 mod entry_store_creator;
 mod fs_adder;
 
