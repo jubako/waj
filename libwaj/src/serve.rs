@@ -2,7 +2,7 @@ use crate::common::{AllProperties, Builder, Entry, Reader};
 use crate::Waj;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
 use std::net::ToSocketAddrs;
