@@ -95,7 +95,7 @@ pub struct Server {
 impl Server {
     fn handle_get(waj: &Waj, url: &str) -> jbk::Result<ResponseBox> {
         for url in url_variants(&url[1..]) {
-            if let Ok(e) = waj.get_entry::<FullBuilder, _>(&url.deref()) {
+            if let Ok(e) = waj.get_entry::<FullBuilder>(&url.deref()) {
                 trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {
@@ -126,7 +126,7 @@ impl Server {
             }
         }
         info!("{url} not found");
-        if let Ok(Entry::Content(e)) = waj.get_entry::<FullBuilder, _>("404.html") {
+        if let Ok(Entry::Content(e)) = waj.get_entry::<FullBuilder>("404.html") {
             let reader = waj.get_reader(e.content_address)?;
             let mut response = Response::new(
                 StatusCode(404),

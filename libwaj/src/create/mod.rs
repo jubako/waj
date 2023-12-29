@@ -6,9 +6,6 @@ mod fs_adder;
 pub use creator::FsCreator;
 pub use entry_store_creator::EntryStoreCreator;
 pub use fs_adder::{Adder, FsAdder};
-use std::ffi::OsStr;
-
-use std::ffi::OsString;
 
 pub enum ConcatMode {
     OneFile,
@@ -18,7 +15,7 @@ pub enum ConcatMode {
 
 pub enum EntryKind {
     Content(jubako::ContentAddress, mime_guess::Mime),
-    Redirect(OsString),
+    Redirect(String),
 }
 
 pub trait EntryTrait {
@@ -26,7 +23,7 @@ pub trait EntryTrait {
     fn kind(&self) -> jubako::Result<Option<EntryKind>>;
 
     /// Under which name the entry will be stored
-    fn name(&self) -> &OsStr;
+    fn name(&self) -> &str;
 }
 
 pub type Void = jubako::Result<()>;
