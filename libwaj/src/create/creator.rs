@@ -10,7 +10,7 @@ use jbk::creator::OutStream;
 
 use super::{Adder, ConcatMode, EntryStoreCreator, FsAdder, Void};
 
-const VENDOR_ID: u32 = 0x77_61_6a_00;
+const VENDOR_ID: jbk::VendorId = jbk::VendorId::new([0x77, 0x61, 0x6a, 0x00]);
 
 pub struct ContentAdder<O: OutStream + 'static> {
     content_pack: jbk::creator::CachedContentPackCreator<O>,

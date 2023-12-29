@@ -9,7 +9,7 @@ repository = "https://framagit.org/jubako/waj"
 license = "MIT"
 
 [workspace.dependencies]
-jubako = { git = "https://framagit.org/jubako/jubako.git" }
+jubako = { git = "https://github.com/jubako/jubako.git" }
 
 [package]
 name = "waj"
