@@ -5,7 +5,7 @@ members = ["libwaj"]
 edition = "2021"
 version = "0.1.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
-repository = "https://framagit.org/jubako/waj"
+repository = "https://github.com/jubako/waj"
 license = "MIT"
 
 [workspace.dependencies]
