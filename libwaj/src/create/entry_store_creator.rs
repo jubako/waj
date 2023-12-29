@@ -3,7 +3,6 @@ use jubako as jbk;
 use super::entry::{Entry, Path1};
 use crate::common::{EntryType, Property};
 use jbk::creator::schema;
-use std::os::unix::ffi::OsStringExt;
 
 use super::{EntryKind, EntryTrait, Void};
 
@@ -81,7 +80,7 @@ impl EntryStoreCreator {
             }
         };
         //let idx = jbk::Vow::new(0);
-        let path = entry.name().to_os_string().into_vec();
+        let path = entry.name().as_bytes().into();
         let path = Path1::new(path, &self.path_store);
         //println!("{:?}", entry.name());
         let entry = match entry_kind {
@@ -90,7 +89,7 @@ impl EntryStoreCreator {
                 Entry::new_content(path, mime_id, content_address)
             }
             EntryKind::Redirect(target) => {
-                let target = target.into_vec();
+                let target = target.as_bytes().into();
                 let target = Path1::new(target, &self.path_store);
                 Entry::new_redirect(path, target)
             }
@@ -109,18 +108,21 @@ mod tests {
 
     #[test]
     fn test_empty() -> jbk::Result<()> {
-        let mut creator =
-            jbk::creator::DirectoryPackCreator::new(jbk::PackId::from(0), 0, Default::default());
+        let mut creator = jbk::creator::DirectoryPackCreator::new(
+            jbk::PackId::from(0),
+            jbk::VendorId::new([0, 0, 0, 0]),
+            Default::default(),
+        );
 
         let entry_store_creator = EntryStoreCreator::new(None);
         assert!(entry_store_creator.finalize(&mut creator).is_ok());
         Ok(())
     }
 
-    struct SimpleEntry(OsString);
+    struct SimpleEntry(String);
 
     impl EntryTrait for SimpleEntry {
-        fn name(&self) -> &OsStr {
+        fn name(&self) -> &str {
             &self.0
         }
 
@@ -136,8 +138,11 @@ mod tests {
     fn test_one_content() -> jbk::Result<()> {
         let waj_file = tempfile::NamedTempFile::new_in(&std::env::temp_dir())?;
         let (mut waj_file, waj_name) = waj_file.into_parts();
-        let mut creator =
-            jbk::creator::DirectoryPackCreator::new(jbk::PackId::from(0), 0, Default::default());
+        let mut creator = jbk::creator::DirectoryPackCreator::new(
+            jbk::PackId::from(0),
+            jbk::VendorId::new([0, 0, 0, 0]),
+            Default::default(),
+        );
 
         let mut entry_store_creator = EntryStoreCreator::new(None);
         let entry = SimpleEntry("foo.txt".into());

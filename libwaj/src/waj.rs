@@ -2,7 +2,6 @@ use super::common::{AllProperties, Builder, Comparator, Entry, FullBuilderTrait,
 use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
 use jubako::reader::Range;
-use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
 pub use jbk::SubReader as Reader;
@@ -70,15 +69,14 @@ impl Waj {
         create_properties(&self.container, index)
     }
 
-    pub fn get_entry<B, P>(&self, path: P) -> jbk::Result<Entry<B::Entry>>
+    pub fn get_entry<B>(&self, path: &str) -> jbk::Result<Entry<B::Entry>>
     where
-        P: AsRef<Path>,
         B: FullBuilderTrait,
     {
         let comparator = Comparator::new(&self.properties);
         let builder = RealBuilder::<B>::new(&self.properties);
         let current_range: jbk::EntryRange = (&self.root_index).into();
-        let comparator = comparator.compare_with(path.as_ref().as_os_str().as_bytes());
+        let comparator = comparator.compare_with(path.as_bytes());
         match current_range.find(&comparator)? {
             None => Err("Cannot found entry".to_string().into()),
             Some(idx) => {

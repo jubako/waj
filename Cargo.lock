@@ -247,6 +247,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "deranged"
+version = "0.3.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eb30d70a07a3b04884d2677f06bec33509dc67ca60d92949e5535352d3191dc"
+
+[[package]]
 name = "either"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -393,6 +399,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "clap",
+ "deranged",
  "fxhash",
  "log",
  "lru 0.11.1",
@@ -955,6 +962,10 @@ dependencies = [
 ]
 
 [[patch.unused]]
+name = "libarx"
+version = "0.2.0"
+
+[[patch.unused]]
 name = "arx"
 version = "0.2.0"
 
@@ -962,7 +973,3 @@ version = "0.2.0"
 name = "fuser"
 version = "0.12.0"
 source = "git+https://github.com/cberner/fuser.git#a9ddc8a7a8cd9f2ba6e7c3bc4c6a76ecad66e6b2"
-
-[[patch.unused]]
-name = "libarx"
-version = "0.2.0"

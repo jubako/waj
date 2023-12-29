@@ -3,7 +3,6 @@ use jubako as jbk;
 use crate::create::{EntryKind, EntryStoreCreator, EntryTrait, Void};
 use jbk::creator::InputReader;
 use mime_guess::mime;
-use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -21,13 +20,13 @@ pub trait Adder {
 pub struct FsEntry {
     pub kind: FsEntryKind,
     pub path: PathBuf,
-    pub name: OsString,
+    pub name: String,
 }
 
 impl FsEntry {
     pub fn new_from_walk_entry<A: Adder>(
         dir_entry: walkdir::DirEntry,
-        name: OsString,
+        name: String,
         adder: &mut A,
     ) -> jbk::Result<Box<Self>> {
         let fs_path = dir_entry.path().to_path_buf();
@@ -72,11 +71,19 @@ impl EntryTrait for FsEntry {
             FsEntryKind::File(content_address, ref mime) => {
                 Some(EntryKind::Content(content_address, mime.clone()))
             }
-            FsEntryKind::Link => Some(EntryKind::Redirect(fs::read_link(&self.path)?.into())),
+            FsEntryKind::Link => {
+                let path = &self.path;
+                Some(EntryKind::Redirect(
+                    fs::read_link(path)?
+                        .to_str()
+                        .unwrap_or_else(|| panic!("{path:?} must be a utf8"))
+                        .to_owned(),
+                ))
+            }
             FsEntryKind::Other => None,
         })
     }
-    fn name(&self) -> &OsStr {
+    fn name(&self) -> &str {
         &self.name
     }
 }
@@ -121,12 +128,13 @@ impl<'a> FsAdder<'a> {
         let walker = walker.into_iter();
         for entry in walker.filter_entry(filter) {
             let entry = entry.unwrap();
-            let waj_path = entry
-                .path()
+            let entry_path = entry.path();
+            let waj_path = entry_path
                 .strip_prefix(self.strip_prefix)
                 .unwrap()
-                .as_os_str()
-                .to_os_string();
+                .to_str()
+                .unwrap_or_else(|| panic!("{entry_path:?} must be a utf8"))
+                .to_owned();
             if waj_path.is_empty() {
                 continue;
             }
