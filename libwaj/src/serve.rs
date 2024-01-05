@@ -1,5 +1,6 @@
 use crate::common::{AllProperties, Builder, Entry, Reader};
 use crate::Waj;
+use ascii::IntoAsciiString;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
 use log::{error, info, trace};
@@ -8,7 +9,7 @@ use std::borrow::Cow;
 use std::net::ToSocketAddrs;
 use std::ops::Deref;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tiny_http::*;
 
@@ -90,28 +91,46 @@ type FullBuilder = (ContentBuilder, RedirectBuilder);
 
 pub struct Server {
     waj: Arc<Waj>,
+    etag_value: String,
 }
 
+fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
+    for header in headers {
+        if header.field.equiv("if-none-match") {
+            return Some(header.value.to_string());
+        }
+    }
+    None
+}
 impl Server {
-    fn handle_get(waj: &Waj, url: &str) -> jbk::Result<ResponseBox> {
+    fn handle_get(waj: &Waj, url: &str, with_content: bool) -> jbk::Result<ResponseBox> {
         for url in url_variants(&url[1..]) {
             if let Ok(e) = waj.get_entry::<FullBuilder>(&url.deref()) {
                 trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {
                         let reader = waj.get_reader(e.content_address)?;
-                        let mut response = Response::new(
-                            StatusCode(200),
-                            vec![],
-                            reader.create_flux_all().to_owned(),
-                            Some(reader.size().into_usize()),
-                            None,
-                        );
+                        let mut response = if with_content {
+                            Response::new(
+                                StatusCode(200),
+                                vec![],
+                                reader.create_flux_all().to_owned(),
+                                Some(reader.size().into_usize()),
+                                None,
+                            )
+                            .boxed()
+                        } else {
+                            Response::empty(StatusCode(200)).boxed()
+                        };
                         response.add_header(Header {
                             field: "Content-Type".parse().unwrap(),
                             value: String::from_utf8(e.mimetype)?.parse().unwrap(),
                         });
-                        return Ok(response.boxed());
+                        response.add_header(Header {
+                            field: "Content-Length".parse().unwrap(),
+                            value: reader.size().into_usize().to_string().parse().unwrap(),
+                        });
+                        return Ok(response);
                     }
                     Entry::Redirect(r) => {
                         let mut response = Response::empty(StatusCode(302));
@@ -147,8 +166,9 @@ impl Server {
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
         let waj = Arc::new(Waj::new(infile)?);
+        let etag_value = "W/\"".to_owned() + &waj.uuid().to_string() + "\"";
 
-        Ok(Self { waj })
+        Ok(Self { waj, etag_value })
     }
 
     pub fn serve(&self, address: &str) -> jbk::Result<()> {
@@ -162,6 +182,7 @@ impl Server {
             let server = server.clone();
             let waj = self.waj.clone();
             let next_request_id = next_request_id.clone();
+            let etag_value = self.etag_value.clone();
 
             let guard = std::thread::spawn(move || loop {
                 let request = match server.recv() {
@@ -183,8 +204,16 @@ impl Server {
 
                 trace!("[{request_id}] : {} {url}", request.method());
 
+                let etag_match =
+                    if let Some(request_etag) = get_etag_from_headers(request.headers()) {
+                        request_etag == etag_value
+                    } else {
+                        false
+                    };
+
                 let ret = match request.method() {
-                    Method::Get => Self::handle_get(&waj, &url),
+                    Method::Get => Self::handle_get(&waj, &url, !etag_match),
+                    Method::Head => Self::handle_get(&waj, &url, false),
                     _ => Err("Not a valid request".into()),
                 };
 
@@ -198,9 +227,23 @@ impl Server {
                         );
                         request.respond(Response::empty(StatusCode(500))).unwrap();
                     }
-                    Ok(response) => {
+                    Ok(mut response) => {
                         trace!("[{request_id} {}µs {url}] Ok", elapsed_time.as_micros());
-                        request.respond(response).unwrap();
+                        response.add_header(Header {
+                            field: "Cache-Control".parse().unwrap(),
+                            value: "max-age=86400, must-revalidate".parse().unwrap(),
+                        });
+                        response.add_header(Header {
+                            field: "ETag".parse().unwrap(),
+                            value: etag_value.clone().into_ascii_string().unwrap(),
+                        });
+                        if etag_match {
+                            request
+                                .respond(response.with_status_code(StatusCode(304)))
+                                .unwrap();
+                        } else {
+                            request.respond(response).unwrap();
+                        }
                     }
                 }
             });
