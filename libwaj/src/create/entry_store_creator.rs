@@ -110,7 +110,7 @@ mod tests {
     fn test_empty() -> jbk::Result<()> {
         let mut creator = jbk::creator::DirectoryPackCreator::new(
             jbk::PackId::from(0),
-            jbk::VendorId::new([0, 0, 0, 0]),
+            crate::VENDOR_ID,
             Default::default(),
         );
 
@@ -140,7 +140,7 @@ mod tests {
         let (mut waj_file, waj_name) = waj_file.into_parts();
         let mut creator = jbk::creator::DirectoryPackCreator::new(
             jbk::PackId::from(0),
-            jbk::VendorId::new([0, 0, 0, 0]),
+            crate::VENDOR_ID,
             Default::default(),
         );
 
