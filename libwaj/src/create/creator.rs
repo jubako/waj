@@ -196,9 +196,9 @@ impl FsCreator {
         Ok(())
     }
 
-    pub fn add_from_path(&mut self, path: &Path, recurse: bool) -> Void {
+    pub fn add_from_path(&mut self, path: &Path) -> Void {
         let mut fs_adder = FsAdder::new(&mut self.entry_store_creator, &self.strip_prefix);
-        fs_adder.add_from_path(path, recurse, &mut self.adder)
+        fs_adder.add_from_path(path, &mut self.adder)
     }
 
     pub fn add_redirect(&mut self, path: &str, target: &str) -> Void {
