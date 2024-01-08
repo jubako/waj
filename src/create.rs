@@ -32,6 +32,9 @@ pub struct Options {
 
     #[clap(short = '1', long, required = false, default_value_t = false, action)]
     one_file: bool,
+
+    #[clap(short, long, required = false)]
+    main: Option<String>,
 }
 
 fn get_files_to_add(options: &Options) -> jbk::Result<Vec<PathBuf>> {
@@ -145,6 +148,10 @@ pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
 
     for infile in files_to_add {
         creator.add_from_path(&infile, options.recurse)?;
+    }
+
+    if let Some(main_page) = options.main {
+        creator.add_redirect("", &main_page)?;
     }
 
     let ret = creator.finalize(&out_file);
