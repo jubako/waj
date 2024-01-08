@@ -3,6 +3,7 @@ use jubako as jbk;
 use crate::create::{EntryKind, EntryStoreCreator, EntryTrait, Void};
 use jbk::creator::InputReader;
 use mime_guess::mime;
+use std::borrow::Cow;
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -83,8 +84,8 @@ impl EntryTrait for FsEntry {
             FsEntryKind::Other => None,
         })
     }
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> Cow<str> {
+        Cow::Borrowed(&self.name)
     }
 }
 

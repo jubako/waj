@@ -122,8 +122,8 @@ mod tests {
     struct SimpleEntry(String);
 
     impl EntryTrait for SimpleEntry {
-        fn name(&self) -> &str {
-            &self.0
+        fn name(&self) -> Cow<str> {
+            Cow::Borrowed(&self.0)
         }
 
         fn kind(&self) -> jbk::Result<Option<EntryKind>> {
