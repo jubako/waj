@@ -1,5 +1,3 @@
-#![feature(get_mut_unchecked)]
-
 mod common;
 pub mod create;
 mod entry;

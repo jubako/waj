@@ -2,7 +2,7 @@ use crate::common::{AllProperties, Builder, Entry, Reader};
 use crate::Waj;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jubako as jbk;
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
 use std::net::ToSocketAddrs;
@@ -95,7 +95,7 @@ pub struct Server {
 impl Server {
     fn handle_get(waj: &Waj, url: &str) -> jbk::Result<ResponseBox> {
         for url in url_variants(&url[1..]) {
-            if let Ok(e) = waj.get_entry::<FullBuilder, _>(&url.deref()) {
+            if let Ok(e) = waj.get_entry::<FullBuilder>(&url.deref()) {
                 trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {
@@ -126,7 +126,7 @@ impl Server {
             }
         }
         info!("{url} not found");
-        if let Ok(Entry::Content(e)) = waj.get_entry::<FullBuilder, _>("404.html") {
+        if let Ok(Entry::Content(e)) = waj.get_entry::<FullBuilder>("404.html") {
             let reader = waj.get_reader(e.content_address)?;
             let mut response = Response::new(
                 StatusCode(404),
