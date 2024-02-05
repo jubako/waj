@@ -177,20 +177,31 @@ impl Server {
         let server = Arc::new(tiny_http::Server::http(addr).unwrap());
         let mut guards = Vec::with_capacity(4);
         let next_request_id = Arc::new(AtomicUsize::new(0));
-
+        let quit_flag = Arc::new(AtomicBool::new(false));
+        for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
+            signal_hook::flag::register_conditional_shutdown(signal, 1, Arc::clone(&quit_flag))?;
+            signal_hook::flag::register(signal, Arc::clone(&quit_flag))?;
+        }
         for _ in 0..4 {
             let server = server.clone();
             let waj = self.waj.clone();
             let next_request_id = next_request_id.clone();
             let etag_value = self.etag_value.clone();
+            let quit_flag = Arc::clone(&quit_flag);
 
             let guard = std::thread::spawn(move || loop {
-                let request = match server.recv() {
+                if quit_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                let request = match server.recv_timeout(std::time::Duration::from_millis(500)) {
                     Err(e) => {
                         info!("error {e}");
                         break;
                     }
-                    Ok(rq) => rq,
+                    Ok(rq) => match rq {
+                        Some(rq) => rq,
+                        None => continue,
+                    },
                 };
 
                 trace!("Get req {request:?}");
