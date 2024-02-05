@@ -395,7 +395,8 @@ dependencies = [
 
 [[package]]
 name = "jubako"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/jubako//jubako?branch=version_0.2.0#063754c14d7b6987fc48d87d5dda3a87d4ea572e"
 dependencies = [
  "blake3",
  "clap",
@@ -710,7 +711,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uuid"
-version = "1.4.1"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f00cc9702ca12d3c81455259621e676d0f7251cec66a21e98fe2e9a37db93b2a"
 dependencies = [
  "getrandom",
 ]
@@ -960,16 +963,3 @@ dependencies = [
  "libc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "libarx"
-version = "0.2.0"
-
-[[patch.unused]]
-name = "arx"
-version = "0.2.0"
-
-[[patch.unused]]
-name = "fuser"
-version = "0.12.0"
-source = "git+https://github.com/cberner/fuser.git#a9ddc8a7a8cd9f2ba6e7c3bc4c6a76ecad66e6b2"
