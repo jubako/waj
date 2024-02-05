@@ -1,19 +1,17 @@
 use crate::common::{AllProperties, Builder, Entry, Reader};
 use crate::Waj;
+use ascii::IntoAsciiString;
 use jbk::reader::builder::PropertyBuilderTrait;
-use jubako as jbk;
 use log::{error, info, trace};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
 use std::net::ToSocketAddrs;
-use std::ops::Deref;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tiny_http::*;
 
 fn url_variants(url: &str) -> Vec<Cow<str>> {
-    let url = url.strip_prefix('/').unwrap_or(url);
     let mut vec: Vec<Cow<str>> = vec![];
     vec.push(url.into());
     let query_string_idx = url.find('?');
@@ -90,28 +88,47 @@ type FullBuilder = (ContentBuilder, RedirectBuilder);
 
 pub struct Server {
     waj: Arc<Waj>,
+    etag_value: String,
 }
 
+fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
+    for header in headers {
+        if header.field.equiv("if-none-match") {
+            return Some(header.value.to_string());
+        }
+    }
+    None
+}
 impl Server {
-    fn handle_get(waj: &Waj, url: &str) -> jbk::Result<ResponseBox> {
-        for url in url_variants(&url[1..]) {
-            if let Ok(e) = waj.get_entry::<FullBuilder>(&url.deref()) {
+    fn handle_get(waj: &Waj, url: &str, with_content: bool) -> jbk::Result<ResponseBox> {
+        for url in url_variants(&url) {
+            let url = url.strip_prefix('/').unwrap_or(&*url);
+            if let Ok(e) = waj.get_entry::<FullBuilder>(&url) {
                 trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {
                         let reader = waj.get_reader(e.content_address)?;
-                        let mut response = Response::new(
-                            StatusCode(200),
-                            vec![],
-                            reader.create_flux_all().to_owned(),
-                            Some(reader.size().into_usize()),
-                            None,
-                        );
+                        let mut response = if with_content {
+                            Response::new(
+                                StatusCode(200),
+                                vec![],
+                                reader.create_flux_all().to_owned(),
+                                Some(reader.size().into_usize()),
+                                None,
+                            )
+                            .boxed()
+                        } else {
+                            Response::empty(StatusCode(200)).boxed()
+                        };
                         response.add_header(Header {
                             field: "Content-Type".parse().unwrap(),
                             value: String::from_utf8(e.mimetype)?.parse().unwrap(),
                         });
-                        return Ok(response.boxed());
+                        response.add_header(Header {
+                            field: "Content-Length".parse().unwrap(),
+                            value: reader.size().into_usize().to_string().parse().unwrap(),
+                        });
+                        return Ok(response);
                     }
                     Entry::Redirect(r) => {
                         let mut response = Response::empty(StatusCode(302));
@@ -147,8 +164,9 @@ impl Server {
 
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
         let waj = Arc::new(Waj::new(infile)?);
+        let etag_value = "W/\"".to_owned() + &waj.uuid().to_string() + "\"";
 
-        Ok(Self { waj })
+        Ok(Self { waj, etag_value })
     }
 
     pub fn serve(&self, address: &str) -> jbk::Result<()> {
@@ -157,19 +175,31 @@ impl Server {
         let server = Arc::new(tiny_http::Server::http(addr).unwrap());
         let mut guards = Vec::with_capacity(4);
         let next_request_id = Arc::new(AtomicUsize::new(0));
-
+        let quit_flag = Arc::new(AtomicBool::new(false));
+        for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
+            signal_hook::flag::register_conditional_shutdown(signal, 1, Arc::clone(&quit_flag))?;
+            signal_hook::flag::register(signal, Arc::clone(&quit_flag))?;
+        }
         for _ in 0..4 {
             let server = server.clone();
             let waj = self.waj.clone();
             let next_request_id = next_request_id.clone();
+            let etag_value = self.etag_value.clone();
+            let quit_flag = Arc::clone(&quit_flag);
 
             let guard = std::thread::spawn(move || loop {
-                let request = match server.recv() {
+                if quit_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                let request = match server.recv_timeout(std::time::Duration::from_millis(500)) {
                     Err(e) => {
                         info!("error {e}");
                         break;
                     }
-                    Ok(rq) => rq,
+                    Ok(rq) => match rq {
+                        Some(rq) => rq,
+                        None => continue,
+                    },
                 };
 
                 trace!("Get req {request:?}");
@@ -181,10 +211,18 @@ impl Server {
 
                 let now = std::time::Instant::now();
 
-                trace!("[{request_id}] : {} {url}", request.method());
+                println!("[{request_id}] : {} {url}", request.method());
+
+                let etag_match =
+                    if let Some(request_etag) = get_etag_from_headers(request.headers()) {
+                        request_etag == etag_value
+                    } else {
+                        false
+                    };
 
                 let ret = match request.method() {
-                    Method::Get => Self::handle_get(&waj, &url),
+                    Method::Get => Self::handle_get(&waj, &url, !etag_match),
+                    Method::Head => Self::handle_get(&waj, &url, false),
                     _ => Err("Not a valid request".into()),
                 };
 
@@ -198,9 +236,23 @@ impl Server {
                         );
                         request.respond(Response::empty(StatusCode(500))).unwrap();
                     }
-                    Ok(response) => {
+                    Ok(mut response) => {
                         trace!("[{request_id} {}µs {url}] Ok", elapsed_time.as_micros());
-                        request.respond(response).unwrap();
+                        response.add_header(Header {
+                            field: "Cache-Control".parse().unwrap(),
+                            value: "max-age=86400, must-revalidate".parse().unwrap(),
+                        });
+                        response.add_header(Header {
+                            field: "ETag".parse().unwrap(),
+                            value: etag_value.clone().into_ascii_string().unwrap(),
+                        });
+                        if etag_match {
+                            request
+                                .respond(response.with_status_code(StatusCode(304)))
+                                .unwrap();
+                        } else {
+                            request.respond(response).unwrap();
+                        }
                     }
                 }
             });

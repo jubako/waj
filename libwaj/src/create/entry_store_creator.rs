@@ -1,5 +1,3 @@
-use jubako as jbk;
-
 use super::entry::{Entry, Path1};
 use crate::common::{EntryType, Property};
 use jbk::creator::schema;
@@ -64,7 +62,7 @@ impl EntryStoreCreator {
             jbk::PropertyIdx::from(0),
             entry_store_id,
             jbk::EntryCount::from(entry_count as u32),
-            jubako::EntryIdx::from(0).into(),
+            jbk::EntryIdx::from(0).into(),
         );
         Ok(())
     }
@@ -103,14 +101,13 @@ impl EntryStoreCreator {
 mod tests {
     use super::super::*;
     use super::*;
-    use jubako as jbk;
     use mime_guess::mime;
 
     #[test]
     fn test_empty() -> jbk::Result<()> {
         let mut creator = jbk::creator::DirectoryPackCreator::new(
             jbk::PackId::from(0),
-            jbk::VendorId::new([0, 0, 0, 0]),
+            crate::VENDOR_ID,
             Default::default(),
         );
 
@@ -122,8 +119,8 @@ mod tests {
     struct SimpleEntry(String);
 
     impl EntryTrait for SimpleEntry {
-        fn name(&self) -> &str {
-            &self.0
+        fn name(&self) -> Cow<str> {
+            Cow::Borrowed(&self.0)
         }
 
         fn kind(&self) -> jbk::Result<Option<EntryKind>> {
@@ -140,7 +137,7 @@ mod tests {
         let (mut waj_file, waj_name) = waj_file.into_parts();
         let mut creator = jbk::creator::DirectoryPackCreator::new(
             jbk::PackId::from(0),
-            jbk::VendorId::new([0, 0, 0, 0]),
+            crate::VENDOR_ID,
             Default::default(),
         );
 

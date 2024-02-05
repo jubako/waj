@@ -248,9 +248,9 @@ dependencies = [
 
 [[package]]
 name = "deranged"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eb30d70a07a3b04884d2677f06bec33509dc67ca60d92949e5535352d3191dc"
+checksum = "b42b6fa04a440b495c8b04d0e71b707c585f83cb9cb28cf8cd0d976c315e31b4"
 
 [[package]]
 name = "either"
@@ -395,7 +395,8 @@ dependencies = [
 
 [[package]]
 name = "jubako"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/jubako//jubako?branch=version_0.2.0#063754c14d7b6987fc48d87d5dda3a87d4ea572e"
 dependencies = [
  "blake3",
  "clap",
@@ -429,6 +430,7 @@ checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
 name = "libwaj"
 version = "0.1.0"
 dependencies = [
+ "ascii",
  "blake3",
  "fxhash",
  "jubako",
@@ -437,6 +439,7 @@ dependencies = [
  "lru 0.8.1",
  "mime_guess",
  "percent-encoding",
+ "signal-hook",
  "static_assertions",
  "tempfile",
  "tiny_http",
@@ -621,6 +624,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "signal-hook"
+version = "0.3.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8621587d4798caf8eb44879d42e56b9a93ea5dcd315a6487c357130095b62801"
+dependencies = [
+ "libc",
+ "signal-hook-registry",
+]
+
+[[package]]
+name = "signal-hook-registry"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "spmc"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -710,7 +732,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uuid"
-version = "1.4.1"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f00cc9702ca12d3c81455259621e676d0f7251cec66a21e98fe2e9a37db93b2a"
 dependencies = [
  "getrandom",
 ]
@@ -960,16 +984,3 @@ dependencies = [
  "libc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "libarx"
-version = "0.2.0"
-
-[[patch.unused]]
-name = "arx"
-version = "0.2.0"
-
-[[patch.unused]]
-name = "fuser"
-version = "0.12.0"
-source = "git+https://github.com/cberner/fuser.git#a9ddc8a7a8cd9f2ba6e7c3bc4c6a76ecad66e6b2"

@@ -1,15 +1,14 @@
 use crate::common::*;
-use jubako::*;
 
 pub struct Path1 {
-    value_id: creator::ValueHandle,
+    value_id: jbk::creator::ValueHandle,
     prefix: u8,
     size: u16,
 }
 static_assertions::assert_eq_size!(Path1, [u8; 24]);
 
 impl Path1 {
-    pub fn new(mut path: Vec<u8>, value_store: &creator::StoreHandle) -> Self {
+    pub fn new(mut path: Vec<u8>, value_store: &jbk::creator::StoreHandle) -> Self {
         //        println!("Add path {path:?}");
         let size = path.len() as u16;
         let prefix = if size == 0 { 0 } else { path.remove(0) };
@@ -23,18 +22,18 @@ impl Path1 {
 }
 
 pub struct Content {
-    mimetype: creator::ValueHandle,
-    content_id: ContentIdx,
-    pack_id: PackId,
+    mimetype: jbk::creator::ValueHandle,
+    content_id: jbk::ContentIdx,
+    pack_id: jbk::PackId,
 }
 static_assertions::assert_eq_size!(Content, [u8; 24]);
 
 pub struct Entry {
-    idx: Vow<EntryIdx>,
+    idx: jbk::Vow<jbk::EntryIdx>,
     // The three path_* are technically a Path1.
     // But extract the three fields from the Path1 allow compiler to
     // reorganise the fields and reduce the structure size.
-    path_value_id: creator::ValueHandle,
+    path_value_id: jbk::creator::ValueHandle,
     path_prefix: u8,
     path_size: u16,
 
@@ -50,11 +49,11 @@ static_assertions::assert_eq_size!(Entry, [u8; 64]);
 impl Entry {
     pub fn new_content(
         path: Path1,
-        mimetype: creator::ValueHandle,
-        content: ContentAddress,
+        mimetype: jbk::creator::ValueHandle,
+        content: jbk::ContentAddress,
     ) -> Self {
         Self {
-            idx: Vow::new(0.into()),
+            idx: jbk::Vow::new(0.into()),
             path_value_id: path.value_id,
             path_prefix: path.prefix,
             path_size: path.size,
@@ -68,7 +67,7 @@ impl Entry {
 
     pub fn new_redirect(path: Path1, target: Path1) -> Self {
         Self {
-            idx: Vow::new(0.into()),
+            idx: jbk::Vow::new(0.into()),
             path_value_id: path.value_id,
             path_prefix: path.prefix,
             path_size: path.size,
@@ -78,46 +77,46 @@ impl Entry {
     }
 }
 
-impl jubako::creator::EntryTrait<Property, EntryType> for Entry {
-    fn variant_name(&self) -> Option<jubako::MayRef<EntryType>> {
-        Some(jubako::MayRef::Owned(match self.kind {
+impl jbk::creator::EntryTrait<Property, EntryType> for Entry {
+    fn variant_name(&self) -> Option<jbk::MayRef<EntryType>> {
+        Some(jbk::MayRef::Owned(match self.kind {
             EntryKind::Content(_) => EntryType::Content,
             EntryKind::Redirect(_) => EntryType::Redirect,
         }))
     }
 
-    fn value_count(&self) -> PropertyCount {
+    fn value_count(&self) -> jbk::PropertyCount {
         match self.kind {
             EntryKind::Content(_) => 3.into(),
             EntryKind::Redirect(_) => 2.into(),
         }
     }
 
-    fn set_idx(&mut self, idx: EntryIdx) {
+    fn set_idx(&mut self, idx: jbk::EntryIdx) {
         self.idx.fulfil(idx)
     }
 
-    fn get_idx(&self) -> Bound<EntryIdx> {
+    fn get_idx(&self) -> jbk::Bound<jbk::EntryIdx> {
         self.idx.bind()
     }
 
-    fn value(&self, name: &Property) -> jubako::MayRef<creator::Value> {
-        jubako::MayRef::Owned(match name {
-            Property::Path => creator::Value::Array1(Box::new(creator::ArrayS::<1> {
+    fn value(&self, name: &Property) -> jbk::MayRef<jbk::creator::Value> {
+        jbk::MayRef::Owned(match name {
+            Property::Path => jbk::creator::Value::Array1(Box::new(jbk::creator::ArrayS::<1> {
                 data: [self.path_prefix],
                 value_id: self.path_value_id.clone_get(),
                 size: self.path_size as usize,
             })),
             Property::Mimetype => {
                 if let EntryKind::Content(content) = &self.kind {
-                    creator::Value::IndirectArray(Box::new(content.mimetype.clone_get()))
+                    jbk::creator::Value::IndirectArray(Box::new(content.mimetype.clone_get()))
                 } else {
                     unreachable!()
                 }
             }
             Property::Content => {
                 if let EntryKind::Content(content) = &self.kind {
-                    creator::Value::Content(ContentAddress::new(
+                    jbk::creator::Value::Content(jbk::ContentAddress::new(
                         content.pack_id,
                         content.content_id,
                     ))
@@ -127,7 +126,7 @@ impl jubako::creator::EntryTrait<Property, EntryType> for Entry {
             }
             Property::Target => {
                 if let EntryKind::Redirect(target) = &self.kind {
-                    creator::Value::Array1(Box::new(creator::ArrayS::<1> {
+                    jbk::creator::Value::Array1(Box::new(jbk::creator::ArrayS::<1> {
                         data: [target.prefix],
                         value_id: target.value_id.clone_get(),
                         size: target.size as usize,
@@ -140,7 +139,7 @@ impl jubako::creator::EntryTrait<Property, EntryType> for Entry {
     }
 }
 
-impl jubako::creator::FullEntryTrait<Property, EntryType> for Entry {
+impl jbk::creator::FullEntryTrait<Property, EntryType> for Entry {
     fn compare<'i, I>(&self, _sort_keys: &'i I, other: &Self) -> std::cmp::Ordering
     where
         I: IntoIterator<Item = &'i Property> + Copy,

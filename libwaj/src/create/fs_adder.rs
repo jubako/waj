@@ -1,8 +1,7 @@
-use jubako as jbk;
-
 use crate::create::{EntryKind, EntryStoreCreator, EntryTrait, Void};
 use jbk::creator::InputReader;
 use mime_guess::mime;
+use std::borrow::Cow;
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -83,8 +82,8 @@ impl EntryTrait for FsEntry {
             FsEntryKind::Other => None,
         })
     }
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> Cow<str> {
+        Cow::Borrowed(&self.name)
     }
 }
 
@@ -101,30 +100,21 @@ impl<'a> FsAdder<'a> {
         }
     }
 
-    pub fn add_from_path<P, A>(&mut self, path: P, recurse: bool, adder: &mut A) -> Void
+    pub fn add_from_path<P, A>(&mut self, path: P, adder: &mut A) -> Void
     where
         P: AsRef<std::path::Path>,
         A: Adder,
     {
-        self.add_from_path_with_filter(path, recurse, |_e| true, adder)
+        self.add_from_path_with_filter(path, |_e| true, adder)
     }
 
-    pub fn add_from_path_with_filter<P, F, A>(
-        &mut self,
-        path: P,
-        recurse: bool,
-        filter: F,
-        adder: &mut A,
-    ) -> Void
+    pub fn add_from_path_with_filter<P, F, A>(&mut self, path: P, filter: F, adder: &mut A) -> Void
     where
         P: AsRef<std::path::Path>,
         F: FnMut(&walkdir::DirEntry) -> bool,
         A: Adder,
     {
-        let mut walker = walkdir::WalkDir::new(path);
-        if !recurse {
-            walker = walker.max_depth(0);
-        }
+        let walker = walkdir::WalkDir::new(path);
         let walker = walker.into_iter();
         for entry in walker.filter_entry(filter) {
             let entry = entry.unwrap();

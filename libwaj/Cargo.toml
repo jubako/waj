@@ -11,7 +11,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-jubako.workspace = true
+jbk.workspace = true
 percent-encoding = "2.2.0"
 tiny_http = "0.12.0"
 mime_guess = "2.0.4"
@@ -24,3 +24,5 @@ tempfile = "3.5.0"
 walkdir = "2.3.3"
 log = "0.4.20"
 static_assertions = "1.1.0"
+ascii = "1.1.0"
+signal-hook = "0.3.17"

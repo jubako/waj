@@ -1,5 +1,3 @@
-use jubako as jbk;
-
 #[repr(u8)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum EntryType {

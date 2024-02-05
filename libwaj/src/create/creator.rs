@@ -1,5 +1,4 @@
-use jubako as jbk;
-
+use std::borrow::Cow;
 use std::io::Seek;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -7,9 +6,23 @@ use std::sync::Arc;
 
 use jbk::creator::OutStream;
 
-use super::{Adder, ConcatMode, EntryStoreCreator, FsAdder, Void};
+use super::{Adder, ConcatMode, EntryKind, EntryStoreCreator, EntryTrait, FsAdder, Void};
+use crate::common::VENDOR_ID;
 
-const VENDOR_ID: jbk::VendorId = jbk::VendorId::new([0x77, 0x61, 0x6a, 0x00]);
+struct Redirect {
+    path: String,
+    target: String,
+}
+
+impl EntryTrait for Redirect {
+    fn kind(&self) -> jbk::Result<Option<EntryKind>> {
+        Ok(Some(EntryKind::Redirect(self.target.clone())))
+    }
+
+    fn name(&self) -> Cow<str> {
+        Cow::Borrowed(&self.path)
+    }
+}
 
 pub struct ContentAdder<O: OutStream + 'static> {
     content_pack: jbk::creator::CachedContentPackCreator<O>,
@@ -181,8 +194,16 @@ impl FsCreator {
         Ok(())
     }
 
-    pub fn add_from_path(&mut self, path: &Path, recurse: bool) -> Void {
+    pub fn add_from_path(&mut self, path: &Path) -> Void {
         let mut fs_adder = FsAdder::new(&mut self.entry_store_creator, &self.strip_prefix);
-        fs_adder.add_from_path(path, recurse, &mut self.adder)
+        fs_adder.add_from_path(path, &mut self.adder)
+    }
+
+    pub fn add_redirect(&mut self, path: &str, target: &str) -> Void {
+        let redirect = Redirect {
+            path: path.into(),
+            target: target.into(),
+        };
+        self.entry_store_creator.add_entry(&redirect)
     }
 }
