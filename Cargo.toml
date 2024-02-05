@@ -9,7 +9,7 @@ repository = "https://github.com/jubako/waj"
 license = "MIT"
 
 [workspace.dependencies]
-jubako = { git = "https://github.com/jubako/jubako.git" }
+jbk = { git = "https://github.com/jubako/jubako.git", package = "jubako" }
 
 [package]
 name = "waj"
@@ -26,5 +26,5 @@ license.workspace = true
 [dependencies]
 clap = { version = "4.0.32", features = ["derive"] }
 libwaj = { path = "libwaj", version = "0.1.0" }
-jubako.workspace = true
 indicatif = "0.17.3"
+jbk.workspace = true

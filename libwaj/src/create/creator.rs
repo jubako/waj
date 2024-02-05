@@ -1,5 +1,3 @@
-use jubako as jbk;
-
 use std::borrow::Cow;
 use std::io::Seek;
 use std::path::{Path, PathBuf};

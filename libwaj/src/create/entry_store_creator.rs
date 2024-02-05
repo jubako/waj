@@ -1,5 +1,3 @@
-use jubako as jbk;
-
 use super::entry::{Entry, Path1};
 use crate::common::{EntryType, Property};
 use jbk::creator::schema;
@@ -64,7 +62,7 @@ impl EntryStoreCreator {
             jbk::PropertyIdx::from(0),
             entry_store_id,
             jbk::EntryCount::from(entry_count as u32),
-            jubako::EntryIdx::from(0).into(),
+            jbk::EntryIdx::from(0).into(),
         );
         Ok(())
     }
@@ -103,7 +101,6 @@ impl EntryStoreCreator {
 mod tests {
     use super::super::*;
     use super::*;
-    use jubako as jbk;
     use mime_guess::mime;
 
     #[test]

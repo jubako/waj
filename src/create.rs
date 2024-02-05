@@ -1,4 +1,3 @@
-use jubako as jbk;
 use libwaj as waj;
 
 use std::cell::Cell;

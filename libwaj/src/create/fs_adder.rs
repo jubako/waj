@@ -1,5 +1,3 @@
-use jubako as jbk;
-
 use crate::create::{EntryKind, EntryStoreCreator, EntryTrait, Void};
 use jbk::creator::InputReader;
 use mime_guess::mime;

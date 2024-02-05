@@ -1,7 +1,6 @@
 use super::common::{AllProperties, Builder, Comparator, Entry, FullBuilderTrait, RealBuilder};
 use jbk::reader::builder::PropertyBuilderTrait;
-use jubako as jbk;
-use jubako::reader::Range;
+use jbk::reader::Range;
 use std::path::Path;
 
 pub use jbk::SubReader as Reader;

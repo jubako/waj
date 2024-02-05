@@ -15,16 +15,16 @@ pub enum ConcatMode {
 }
 
 pub enum EntryKind {
-    Content(jubako::ContentAddress, mime_guess::Mime),
+    Content(jbk::ContentAddress, mime_guess::Mime),
     Redirect(String),
 }
 
 pub trait EntryTrait {
     /// The kind of the entry
-    fn kind(&self) -> jubako::Result<Option<EntryKind>>;
+    fn kind(&self) -> jbk::Result<Option<EntryKind>>;
 
     /// Under which name the entry will be stored
     fn name(&self) -> Cow<str>;
 }
 
-pub type Void = jubako::Result<()>;
+pub type Void = jbk::Result<()>;

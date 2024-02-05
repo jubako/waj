@@ -2,7 +2,6 @@ use crate::common::{AllProperties, Builder, Entry, Reader};
 use crate::Waj;
 use ascii::IntoAsciiString;
 use jbk::reader::builder::PropertyBuilderTrait;
-use jubako as jbk;
 use log::{error, info, trace};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
@@ -212,7 +211,7 @@ impl Server {
 
                 let now = std::time::Instant::now();
 
-                trace!("[{request_id}] : {} {url}", request.method());
+                println!("[{request_id}] : {} {url}", request.method());
 
                 let etag_match =
                     if let Some(request_etag) = get_etag_from_headers(request.headers()) {
