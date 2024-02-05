@@ -3,13 +3,13 @@ members = ["libwaj"]
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
 repository = "https://github.com/jubako/waj"
 license = "MIT"
 
 [workspace.dependencies]
-jbk = { git = "https://github.com/jubako/jubako.git", package = "jubako" }
+jbk = { git = "https://github.com/jubako/jubako.git", package = "jubako", version = "0.2.0" }
 
 [package]
 name = "waj"
@@ -25,6 +25,6 @@ license.workspace = true
 
 [dependencies]
 clap = { version = "4.0.32", features = ["derive"] }
-libwaj = { path = "libwaj", version = "0.1.0" }
+libwaj = { path = "libwaj", version = "0.2.0" }
 indicatif = "0.17.3"
 jbk.workspace = true
