@@ -101,9 +101,9 @@ fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
 }
 impl Server {
     fn handle_get(waj: &Waj, url: &str, with_content: bool) -> jbk::Result<ResponseBox> {
-        for url in url_variants(&url) {
-            let url = url.strip_prefix('/').unwrap_or(&*url);
-            if let Ok(e) = waj.get_entry::<FullBuilder>(&url) {
+        for url in url_variants(url) {
+            let url = url.strip_prefix('/').unwrap_or(&url);
+            if let Ok(e) = waj.get_entry::<FullBuilder>(url) {
                 trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {

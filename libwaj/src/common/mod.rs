@@ -70,10 +70,6 @@ impl<'builder, Builder: BuilderTrait> ReadEntry<'builder, Builder> {
             end,
         }
     }
-
-    pub fn skip(&mut self, to_skip: jbk::EntryCount) {
-        self.current += to_skip;
-    }
 }
 
 impl<'builder, Builder: BuilderTrait> Iterator for ReadEntry<'builder, Builder> {
