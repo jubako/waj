@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 #[derive(Parser)]
-#[clap(name = "waj", author, version, about, long_about=None)]
+#[command(name = "waj", author, version, about, long_about=None)]
 struct Cli {
     /// Set verbose level. Can be specify several times to augment verbose level.
     #[arg(short, long, action=clap::ArgAction::Count, global=true)]
@@ -47,12 +47,15 @@ enum Commands {
     List(list::Options),
 }
 
+/// Serve the waj archive on the web.
 #[derive(Parser)]
 struct Serve {
+    /// Archive to serve
     #[arg(value_parser)]
     infile: PathBuf,
 
-    #[arg(value_parser)]
+    /// On which address serve the archive.
+    #[arg(value_parser, default_value = "localhost:1234")]
     address: String,
 
     #[arg(from_global)]

@@ -1,10 +1,12 @@
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, ValueHint};
 use std::path::PathBuf;
 
+/// List the content in the archive.
 #[derive(Parser)]
 pub struct Options {
-    #[arg(value_parser)]
+    /// Archive to read
+    #[arg(value_parser, value_hint=ValueHint::FilePath)]
     infile: PathBuf,
 
     #[arg(from_global)]
