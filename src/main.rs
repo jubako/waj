@@ -84,6 +84,7 @@ fn configure_log(verbose: u8) {
 fn run() -> Result<()> {
     let args = Cli::parse();
     configure_log(args.verbose);
+    human_panic::setup_panic!();
 
     if let Some(what) = args.generate_man_page {
         let command = match what.as_str() {
