@@ -1,11 +1,9 @@
-use libwaj as waj;
-
-use clap::Args;
+use clap::Parser;
 use std::path::PathBuf;
 
-#[derive(Args)]
+#[derive(Parser)]
 pub struct Options {
-    #[clap(value_parser)]
+    #[arg(value_parser)]
     infile: PathBuf,
 }
 
