@@ -1,8 +1,11 @@
 mod create;
 mod list;
 
+use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
+use log::error;
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 #[derive(Parser)]
 #[clap(name = "waj", author, version, about, long_about=None)]
@@ -75,7 +78,7 @@ fn configure_log(verbose: u8) {
         .init();
 }
 
-fn main() -> jbk::Result<()> {
+fn run() -> Result<()> {
     let args = Cli::parse();
     configure_log(args.verbose);
 
@@ -110,10 +113,21 @@ fn main() -> jbk::Result<()> {
                         options.infile, options.address,
                     );
                 }
-                let server = waj::Server::new(&options.infile)?;
-                server.serve(&options.address)
+                let server = waj::Server::new(&options.infile)
+                    .with_context(|| format!("Opening {:?}", options.infile))?;
+                Ok(server.serve(&options.address)?)
             }
             Commands::List(options) => list::list(options),
         },
+    }
+}
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            error!("Error : {e:#}");
+            ExitCode::FAILURE
+        }
     }
 }

@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -108,7 +109,7 @@ impl CachedSize {
     }
 }
 
-pub fn create(options: Options) -> jbk::Result<()> {
+pub fn create(options: Options) -> Result<()> {
     if options.verbose > 0 {
         println!("Creating archive {:?}", options.outfile);
         println!("With files {:?}", options.infiles);
@@ -152,5 +153,5 @@ pub fn create(options: Options) -> jbk::Result<()> {
     }
 
     let ret = creator.finalize(&out_file);
-    ret
+    Ok(ret?)
 }

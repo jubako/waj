@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -32,8 +33,9 @@ impl waj::walk::Operator<(), waj::FullBuilder> for Lister {
     }
 }
 
-pub fn list(options: Options) -> jbk::Result<()> {
-    let waj = waj::Waj::new(options.infile)?;
+pub fn list(options: Options) -> Result<()> {
+    let waj =
+        waj::Waj::new(&options.infile).with_context(|| format!("Opening {:?}", options.infile))?;
     let mut walker = waj::walk::Walker::new(&waj, ());
-    walker.run(&Lister)
+    Ok(walker.run(&Lister)?)
 }
