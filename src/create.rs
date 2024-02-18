@@ -5,29 +5,29 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(clap::Args)]
+#[derive(clap::Parser)]
 pub struct Options {
     // Archive name to create
-    #[clap(short = 'f', long = "file", value_parser)]
+    #[arg(short = 'f', long = "file", value_parser)]
     outfile: PathBuf,
 
-    #[clap(long, required = false)]
+    #[arg(long, required = false)]
     strip_prefix: Option<PathBuf>,
 
-    #[clap(short = 'C', required = false)]
+    #[arg(short = 'C', required = false)]
     base_dir: Option<PathBuf>,
 
     // Input
-    #[clap(value_parser)]
+    #[arg(value_parser)]
     infiles: Vec<PathBuf>,
 
-    #[clap(short = 'L', long = "file-list")]
+    #[arg(short = 'L', long = "file-list")]
     file_list: Option<PathBuf>,
 
-    #[clap(short = '1', long, required = false, default_value_t = false, action)]
+    #[arg(short = '1', long, required = false, default_value_t = false, action)]
     one_file: bool,
 
-    #[clap(short, long, required = false)]
+    #[arg(short, long, required = false)]
     main: Option<String>,
 }
 
