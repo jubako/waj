@@ -1,5 +1,3 @@
-use libwaj as waj;
-
 use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};

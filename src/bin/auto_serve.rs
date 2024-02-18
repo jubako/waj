@@ -1,5 +1,3 @@
-use libwaj as waj;
-
 use std::env;
 use std::process::ExitCode;
 

@@ -1,5 +1,3 @@
-use libwaj as waj;
-
 use clap::Args;
 use std::path::PathBuf;
 

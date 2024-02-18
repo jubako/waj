@@ -1,5 +1,3 @@
-use libwaj as waj;
-
 mod create;
 mod list;
 
