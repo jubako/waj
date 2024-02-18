@@ -29,4 +29,6 @@ clap_mangen = "0.2.20"
 clap_complete = "4.5.0"
 waj = { path = "libwaj", package = "libwaj", version = "0.2.0" }
 indicatif = "0.17.3"
+env_logger = "0.10.0"
+log = "0.4.20"
 jbk.workspace = true

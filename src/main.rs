@@ -52,8 +52,28 @@ struct Serve {
     address: String,
 }
 
+fn configure_log(verbose: u8) {
+    let env = env_logger::Env::default()
+        .filter("WAJ_LOG")
+        .write_style("WAJ_LOG_STYLE");
+    env_logger::Builder::from_env(env)
+        .filter_module(
+            "waj",
+            match verbose {
+                0 => log::LevelFilter::Warn,
+                1 => log::LevelFilter::Info,
+                2 => log::LevelFilter::Debug,
+                _ => log::LevelFilter::Trace,
+            },
+        )
+        .format_module_path(false)
+        .format_timestamp(None)
+        .init();
+}
+
 fn main() -> jbk::Result<()> {
     let args = Cli::parse();
+    configure_log(args.verbose);
 
     if let Some(what) = args.generate_man_page {
         let command = match what.as_str() {
