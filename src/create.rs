@@ -1,3 +1,5 @@
+use anyhow::Result;
+use clap::{Parser, ValueHint};
 use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -5,23 +7,32 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(clap::Parser)]
+#[derive(Parser)]
 pub struct Options {
     // Archive name to create
     #[arg(short = 'f', long = "file", value_parser)]
     outfile: PathBuf,
 
-    #[arg(long, required = false)]
+    /// Remove STRIP_PREFIX from the entries' name added to the archive.
+    #[arg(long, required = false, value_hint=ValueHint::DirPath)]
     strip_prefix: Option<PathBuf>,
 
-    #[arg(short = 'C', required = false)]
+    /// Move to BASE_DIR before starting adding content to arx archive.
+    ///
+    /// Argument `INFILES` or `STRIP_PREFIX` must be relative to `BASE_DIR`.
+    #[arg(short = 'C', required = false, value_hint=ValueHint::DirPath)]
     base_dir: Option<PathBuf>,
 
-    // Input
-    #[arg(value_parser)]
+    /// Input files/directories
+    ///
+    /// This is an option incompatible with `FILE_LIST`.
+    #[arg(value_parser, group = "input", value_hint=ValueHint::AnyPath)]
     infiles: Vec<PathBuf>,
 
-    #[arg(short = 'L', long = "file-list")]
+    /// Get the list of files/directories to add from the FILE_LIST (incompatible with INFILES)
+    ///
+    /// This is an option incompatible with `INFILES`.
+    #[arg(short = 'L', long = "file-list", group = "input", verbatim_doc_comment, value_hint=ValueHint::FilePath)]
     file_list: Option<PathBuf>,
 
     #[arg(short = '1', long, required = false, default_value_t = false, action)]
@@ -29,6 +40,9 @@ pub struct Options {
 
     #[arg(short, long, required = false)]
     main: Option<String>,
+
+    #[arg(from_global)]
+    verbose: u8,
 }
 
 fn get_files_to_add(options: &Options) -> jbk::Result<Vec<PathBuf>> {
@@ -105,8 +119,8 @@ impl CachedSize {
     }
 }
 
-pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
-    if verbose_level > 0 {
+pub fn create(options: Options) -> Result<()> {
+    if options.verbose > 0 {
         println!("Creating archive {:?}", options.outfile);
         println!("With files {:?}", options.infiles);
     }
@@ -149,5 +163,5 @@ pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
     }
 
     let ret = creator.finalize(&out_file);
-    ret
+    Ok(ret?)
 }

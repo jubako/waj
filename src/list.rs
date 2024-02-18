@@ -1,10 +1,16 @@
-use clap::Parser;
+use anyhow::{Context, Result};
+use clap::{Parser, ValueHint};
 use std::path::PathBuf;
 
+/// List the content in the archive.
 #[derive(Parser)]
 pub struct Options {
-    #[arg(value_parser)]
+    /// Archive to read
+    #[arg(value_parser, value_hint=ValueHint::FilePath)]
     infile: PathBuf,
+
+    #[arg(from_global)]
+    verbose: u8,
 }
 
 struct Lister;
@@ -29,8 +35,9 @@ impl waj::walk::Operator<(), waj::FullBuilder> for Lister {
     }
 }
 
-pub fn list(options: Options) -> jbk::Result<()> {
-    let waj = waj::Waj::new(options.infile)?;
+pub fn list(options: Options) -> Result<()> {
+    let waj =
+        waj::Waj::new(&options.infile).with_context(|| format!("Opening {:?}", options.infile))?;
     let mut walker = waj::walk::Walker::new(&waj, ());
-    walker.run(&Lister)
+    Ok(walker.run(&Lister)?)
 }

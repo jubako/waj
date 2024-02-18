@@ -1,13 +1,17 @@
 mod create;
 mod list;
 
+use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
+use log::error;
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 #[derive(Parser)]
-#[clap(name = "waj", author, version, about, long_about=None)]
+#[command(name = "waj", author, version, about, long_about=None)]
 struct Cli {
-    #[arg(short, long, action=clap::ArgAction::Count)]
+    /// Set verbose level. Can be specify several times to augment verbose level.
+    #[arg(short, long, action=clap::ArgAction::Count, global=true)]
     verbose: u8,
 
     #[arg(
@@ -43,17 +47,43 @@ enum Commands {
     List(list::Options),
 }
 
+/// Serve the waj archive on the web.
 #[derive(Parser)]
 struct Serve {
+    /// Archive to serve
     #[arg(value_parser)]
     infile: PathBuf,
 
-    #[arg(value_parser)]
+    /// On which address serve the archive.
+    #[arg(value_parser, default_value = "localhost:1234")]
     address: String,
+
+    #[arg(from_global)]
+    verbose: u8,
 }
 
-fn main() -> jbk::Result<()> {
+fn configure_log(verbose: u8) {
+    let env = env_logger::Env::default()
+        .filter("WAJ_LOG")
+        .write_style("WAJ_LOG_STYLE");
+    env_logger::Builder::from_env(env)
+        .filter_module(
+            "waj",
+            match verbose {
+                0 => log::LevelFilter::Warn,
+                1 => log::LevelFilter::Info,
+                2 => log::LevelFilter::Debug,
+                _ => log::LevelFilter::Trace,
+            },
+        )
+        .format_module_path(false)
+        .format_timestamp(None)
+        .init();
+}
+
+fn run() -> Result<()> {
     let args = Cli::parse();
+    configure_log(args.verbose);
 
     if let Some(what) = args.generate_man_page {
         let command = match what.as_str() {
@@ -78,18 +108,29 @@ fn main() -> jbk::Result<()> {
     match args.command {
         None => Ok(Cli::command().print_help()?),
         Some(c) => match c {
-            Commands::Create(options) => create::create(options, args.verbose),
-            Commands::Serve(serve_cmd) => {
-                if args.verbose > 0 {
+            Commands::Create(options) => create::create(options),
+            Commands::Serve(options) => {
+                if options.verbose > 0 {
                     println!(
                         "Serve archive {:?} at {:?}",
-                        serve_cmd.infile, serve_cmd.address,
+                        options.infile, options.address,
                     );
                 }
-                let server = waj::Server::new(serve_cmd.infile)?;
-                server.serve(&serve_cmd.address)
+                let server = waj::Server::new(&options.infile)
+                    .with_context(|| format!("Opening {:?}", options.infile))?;
+                Ok(server.serve(&options.address)?)
             }
             Commands::List(options) => list::list(options),
         },
+    }
+}
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            error!("Error : {e:#}");
+            ExitCode::FAILURE
+        }
     }
 }
