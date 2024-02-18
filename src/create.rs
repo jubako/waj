@@ -149,6 +149,5 @@ pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
     }
 
     let ret = creator.finalize(&out_file);
-    println!("Saved place is {}", progress.0.get());
     ret
 }
