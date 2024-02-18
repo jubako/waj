@@ -39,3 +39,12 @@ jobs:
 
       - name: Test code
         run: cargo test --workspace --verbose
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}-${{ matrix.toolchain }}
+          path: |
+            target/debug/waj
+            target/debug/waj.exe
+          compression-level: 0
