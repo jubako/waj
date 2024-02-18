@@ -7,7 +7,8 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[clap(name = "waj", author, version, about, long_about=None)]
 struct Cli {
-    #[arg(short, long, action=clap::ArgAction::Count)]
+    /// Set verbose level. Can be specify several times to augment verbose level.
+    #[arg(short, long, action=clap::ArgAction::Count, global=true)]
     verbose: u8,
 
     #[arg(
@@ -50,6 +51,9 @@ struct Serve {
 
     #[arg(value_parser)]
     address: String,
+
+    #[arg(from_global)]
+    verbose: u8,
 }
 
 fn configure_log(verbose: u8) {
@@ -98,16 +102,16 @@ fn main() -> jbk::Result<()> {
     match args.command {
         None => Ok(Cli::command().print_help()?),
         Some(c) => match c {
-            Commands::Create(options) => create::create(options, args.verbose),
-            Commands::Serve(serve_cmd) => {
-                if args.verbose > 0 {
+            Commands::Create(options) => create::create(options),
+            Commands::Serve(options) => {
+                if options.verbose > 0 {
                     println!(
                         "Serve archive {:?} at {:?}",
-                        serve_cmd.infile, serve_cmd.address,
+                        options.infile, options.address,
                     );
                 }
-                let server = waj::Server::new(serve_cmd.infile)?;
-                server.serve(&serve_cmd.address)
+                let server = waj::Server::new(&options.infile)?;
+                server.serve(&options.address)
             }
             Commands::List(options) => list::list(options),
         },

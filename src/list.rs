@@ -5,6 +5,9 @@ use std::path::PathBuf;
 pub struct Options {
     #[arg(value_parser)]
     infile: PathBuf,
+
+    #[arg(from_global)]
+    verbose: u8,
 }
 
 struct Lister;

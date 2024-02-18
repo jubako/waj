@@ -29,6 +29,9 @@ pub struct Options {
 
     #[arg(short, long, required = false)]
     main: Option<String>,
+
+    #[arg(from_global)]
+    verbose: u8,
 }
 
 fn get_files_to_add(options: &Options) -> jbk::Result<Vec<PathBuf>> {
@@ -105,8 +108,8 @@ impl CachedSize {
     }
 }
 
-pub fn create(options: Options, verbose_level: u8) -> jbk::Result<()> {
-    if verbose_level > 0 {
+pub fn create(options: Options) -> jbk::Result<()> {
+    if options.verbose > 0 {
         println!("Creating archive {:?}", options.outfile);
         println!("With files {:?}", options.infiles);
     }
