@@ -2,7 +2,7 @@ use crate::common::{AllProperties, Builder, Entry, Reader};
 use crate::Waj;
 use ascii::IntoAsciiString;
 use jbk::reader::builder::PropertyBuilderTrait;
-use log::{error, info, trace};
+use log::{debug, error, trace, warn};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
 use std::net::ToSocketAddrs;
@@ -142,7 +142,7 @@ impl Server {
                 }
             }
         }
-        info!("{url} not found");
+        warn!("{url} not found");
         if let Ok(Entry::Content(e)) = waj.get_entry::<FullBuilder>("404.html") {
             let reader = waj.get_reader(e.content_address)?;
             let mut response = Response::new(
@@ -171,7 +171,6 @@ impl Server {
 
     pub fn serve(&self, address: &str) -> jbk::Result<()> {
         let addr = address.to_socket_addrs().unwrap().next().unwrap();
-        info!("Serving on address {addr}");
         let server = Arc::new(tiny_http::Server::http(addr).unwrap());
         let mut guards = Vec::with_capacity(4);
         let next_request_id = Arc::new(AtomicUsize::new(0));
@@ -193,7 +192,7 @@ impl Server {
                 }
                 let request = match server.recv_timeout(std::time::Duration::from_millis(500)) {
                     Err(e) => {
-                        info!("error {e}");
+                        error!("error {e}");
                         break;
                     }
                     Ok(rq) => match rq {
@@ -211,7 +210,7 @@ impl Server {
 
                 let now = std::time::Instant::now();
 
-                println!("[{request_id}] : {} {url}", request.method());
+                debug!("[{request_id}] : {} {url}", request.method());
 
                 let etag_match =
                     if let Some(request_etag) = get_etag_from_headers(request.headers()) {
