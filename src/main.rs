@@ -1,7 +1,8 @@
 mod create;
 mod list;
+mod serve;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use log::error;
 use std::path::PathBuf;
@@ -41,7 +42,7 @@ enum Commands {
     Create(create::Options),
 
     #[command(arg_required_else_help = true)]
-    Serve(Serve),
+    Serve(serve::Options),
 
     #[command(arg_required_else_help = true)]
     List(list::Options),
@@ -110,17 +111,7 @@ fn run() -> Result<()> {
         None => Ok(Cli::command().print_help()?),
         Some(c) => match c {
             Commands::Create(options) => create::create(options),
-            Commands::Serve(options) => {
-                if options.verbose > 0 {
-                    println!(
-                        "Serve archive {:?} at {:?}",
-                        options.infile, options.address,
-                    );
-                }
-                let server = waj::Server::new(&options.infile)
-                    .with_context(|| format!("Opening {:?}", options.infile))?;
-                Ok(server.serve(&options.address)?)
-            }
+            Commands::Serve(options) => serve::serve(options),
             Commands::List(options) => list::list(options),
         },
     }
