@@ -9,9 +9,18 @@ use std::sync::Arc;
 
 #[derive(Parser)]
 pub struct Options {
-    // Archive name to create
-    #[arg(short = 'f', long = "file", value_parser)]
-    outfile: PathBuf,
+    /// File path of the archive to create.
+    ///
+    /// Relative path are relative to the current working dir.
+    /// `BASE_DIR` option is used after resolving relative path.
+    #[arg(
+        short,
+        long,
+        value_hint=ValueHint::FilePath,
+        required=true,
+        value_parser
+    )]
+    outfile: Option<PathBuf>,
 
     /// Remove STRIP_PREFIX from the entries' name added to the archive.
     #[arg(long, required = false, value_hint=ValueHint::DirPath)]
@@ -26,7 +35,7 @@ pub struct Options {
     /// Input files/directories
     ///
     /// This is an option incompatible with `FILE_LIST`.
-    #[arg(value_parser, group = "input", value_hint=ValueHint::AnyPath)]
+    #[arg(group = "input", value_hint=ValueHint::AnyPath)]
     infiles: Vec<PathBuf>,
 
     /// Get the list of files/directories to add from the FILE_LIST (incompatible with INFILES)
@@ -43,6 +52,17 @@ pub struct Options {
 
     #[arg(from_global)]
     verbose: u8,
+
+    // [TODO] Remove on next "major" (breaking api) version
+    #[arg(
+        short = 'f',
+        long = "file",
+        hide = true,
+        conflicts_with("outfile"),
+        required_unless_present("outfile"),
+        value_parser
+    )]
+    outfile_old: Option<PathBuf>,
 }
 
 fn get_files_to_add(options: &Options) -> jbk::Result<Vec<PathBuf>> {
@@ -130,7 +150,12 @@ pub fn create(options: Options) -> Result<()> {
         None => PathBuf::new(),
     };
 
-    let out_file = std::env::current_dir()?.join(&options.outfile);
+    let out_file = if let Some(ref outfile) = options.outfile_old {
+        outfile
+    } else {
+        options.outfile.as_ref().unwrap()
+    };
+    let out_file = std::env::current_dir()?.join(out_file);
 
     let concat_mode = if options.one_file {
         waj::create::ConcatMode::OneFile
