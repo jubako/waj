@@ -120,7 +120,7 @@ jobs:
       shell: bash
       run: |
         "$BIN" --generate-man-page > "$ARCHIVE/doc/waj.1"
-        commands="create list server"
+        commands="create list serve"
         for command in $commands
         do
           "$BIN" --generate-man-page=$command > "$ARCHIVE/doc/waj-$command.1"
