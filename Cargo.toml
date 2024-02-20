@@ -10,7 +10,7 @@ homepage = "https://github.com/jubako/waj"
 license = "MIT"
 
 [workspace.dependencies]
-jbk = { git = "https://github.com/jubako/jubako.git", package = "jubako", version = "0.2.0" }
+jbk = { git = "https://github.com/jubako/jubako.git", package = "jubako", version = "0.2.1" }
 
 [package]
 name = "waj"
