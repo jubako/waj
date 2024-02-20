@@ -26,17 +26,18 @@ Waj use the jubako format and create waj archive which:
 - Store content compressed.
 - Can do random access on the waj archive to allow quick serving to a request
 
-
-Try waj
-=======
-
 Install waj
------------
+===========
+
+Binaries for Windows, MacOS and Linux are available for [every release](https://github.com/jubako/waj/releases).
+You can also install arx using Cargo:
 
 ```
 cargo install waj
 ```
 
+Use waj
+=======
 
 Create an archive
 -----------------
@@ -46,7 +47,7 @@ Creating an archive is simple :
 Assuming you have a directory `my_directory` containing a static website:
 
 ```
-waj create --file my_archive.waj -1 --strip-prefix "my_directory/" my_directory 
+waj create -o my_archive.waj -1 --strip-prefix "my_directory/" my_directory 
 ```
 
 It will create one file : `my_archive.waj`, which will contains all content in the `my_directory` directory.
@@ -87,4 +88,4 @@ the `-m main` option at waj creation.
 Zim2Waj
 -------
 
-There is a small tool at `https://github.com/jubako/zim2waj` to convert any existing zim file into a waj.
+There is a small tool at https://github.com/jubako/zim2waj to convert any existing zim file into a waj.
