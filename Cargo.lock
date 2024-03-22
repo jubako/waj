@@ -490,8 +490,7 @@ dependencies = [
 
 [[package]]
 name = "jubako"
-version = "0.2.1"
-source = "git+https://github.com/jubako/jubako.git#36ce8c375aa289e00e6c7843781d421fb3f36a92"
+version = "0.3.0-dev"
 dependencies = [
  "blake3",
  "clap",
@@ -523,7 +522,7 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libwaj"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "ascii",
  "blake3",
@@ -962,7 +961,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "waj"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
