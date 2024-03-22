@@ -86,28 +86,30 @@ impl Builder for RedirectBuilder {
 
 type FullBuilder = (ContentBuilder, RedirectBuilder);
 
-pub struct Server {
+// A internal server, local to one thread.
+struct RequestHandler {
     waj: Arc<Waj>,
+    next_request_id: Arc<AtomicUsize>,
     etag_value: String,
 }
 
-fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
-    for header in headers {
-        if header.field.equiv("if-none-match") {
-            return Some(header.value.to_string());
+impl RequestHandler {
+    fn new(waj: Arc<Waj>, next_request_id: Arc<AtomicUsize>, etag_value: String) -> Self {
+        Self {
+            waj,
+            next_request_id,
+            etag_value,
         }
     }
-    None
-}
-impl Server {
-    fn handle_get(waj: &Waj, url: &str, with_content: bool) -> jbk::Result<ResponseBox> {
+
+    fn handle_get(&self, url: &str, with_content: bool) -> jbk::Result<ResponseBox> {
         for url in url_variants(url) {
             let url = url.strip_prefix('/').unwrap_or(&url);
-            if let Ok(e) = waj.get_entry::<FullBuilder>(url) {
+            if let Ok(e) = self.waj.get_entry::<FullBuilder>(url) {
                 trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {
-                        let reader = waj.get_reader(e.content_address)?;
+                        let reader = self.waj.get_reader(e.content_address)?;
                         let mut response = if with_content {
                             Response::new(
                                 StatusCode(200),
@@ -143,8 +145,8 @@ impl Server {
             }
         }
         warn!("{url} not found");
-        if let Ok(Entry::Content(e)) = waj.get_entry::<FullBuilder>("404.html") {
-            let reader = waj.get_reader(e.content_address)?;
+        if let Ok(Entry::Content(e)) = self.waj.get_entry::<FullBuilder>("404.html") {
+            let reader = self.waj.get_reader(e.content_address)?;
             let mut response = Response::new(
                 StatusCode(404),
                 vec![],
@@ -162,6 +164,76 @@ impl Server {
         }
     }
 
+    fn handle(&self, request: Request) {
+        trace!("Get req {request:?}");
+        let request_id = self.next_request_id.fetch_add(1, Ordering::Relaxed);
+
+        let url = percent_decode(request.url().as_bytes())
+            .decode_utf8()
+            .unwrap();
+
+        let now = std::time::Instant::now();
+
+        debug!("[{request_id}] : {} {url}", request.method());
+
+        let etag_match = if let Some(request_etag) = get_etag_from_headers(request.headers()) {
+            request_etag == self.etag_value
+        } else {
+            false
+        };
+
+        let ret = match request.method() {
+            Method::Get => self.handle_get(&url, !etag_match),
+            Method::Head => self.handle_get(&url, false),
+            _ => Err("Not a valid request".into()),
+        };
+
+        let elapsed_time = now.elapsed();
+
+        match ret {
+            Err(e) => {
+                error!(
+                    "[{request_id} {}µs {url}] Error : {e}",
+                    elapsed_time.as_micros()
+                );
+                request.respond(Response::empty(StatusCode(500))).unwrap();
+            }
+            Ok(mut response) => {
+                trace!("[{request_id} {}µs {url}] Ok", elapsed_time.as_micros());
+                response.add_header(Header {
+                    field: "Cache-Control".parse().unwrap(),
+                    value: "max-age=86400, must-revalidate".parse().unwrap(),
+                });
+                response.add_header(Header {
+                    field: "ETag".parse().unwrap(),
+                    value: self.etag_value.clone().into_ascii_string().unwrap(),
+                });
+                if etag_match {
+                    request
+                        .respond(response.with_status_code(StatusCode(304)))
+                        .unwrap();
+                } else {
+                    request.respond(response).unwrap();
+                }
+            }
+        }
+    }
+}
+
+pub struct Server {
+    waj: Arc<Waj>,
+    etag_value: String,
+}
+
+fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
+    for header in headers {
+        if header.field.equiv("if-none-match") {
+            return Some(header.value.to_string());
+        }
+    }
+    None
+}
+impl Server {
     pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
         let waj = Arc::new(Waj::new(infile)?);
         let etag_value = "W/\"".to_owned() + &waj.uuid().to_string() + "\"";
@@ -181,79 +253,27 @@ impl Server {
         }
         for _ in 0..4 {
             let server = server.clone();
-            let waj = self.waj.clone();
-            let next_request_id = next_request_id.clone();
-            let etag_value = self.etag_value.clone();
+            let handler = RequestHandler::new(
+                Arc::clone(&self.waj),
+                Arc::clone(&next_request_id),
+                self.etag_value.clone(),
+            );
             let quit_flag = Arc::clone(&quit_flag);
 
             let guard = std::thread::spawn(move || loop {
                 if quit_flag.load(Ordering::Relaxed) {
                     break;
                 }
-                let request = match server.recv_timeout(std::time::Duration::from_millis(500)) {
+                match server.recv_timeout(std::time::Duration::from_millis(500)) {
                     Err(e) => {
                         error!("error {e}");
                         break;
                     }
                     Ok(rq) => match rq {
-                        Some(rq) => rq,
+                        Some(rq) => handler.handle(rq),
                         None => continue,
                     },
                 };
-
-                trace!("Get req {request:?}");
-                let request_id = next_request_id.fetch_add(1, Ordering::Relaxed);
-
-                let url = percent_decode(request.url().as_bytes())
-                    .decode_utf8()
-                    .unwrap();
-
-                let now = std::time::Instant::now();
-
-                debug!("[{request_id}] : {} {url}", request.method());
-
-                let etag_match =
-                    if let Some(request_etag) = get_etag_from_headers(request.headers()) {
-                        request_etag == etag_value
-                    } else {
-                        false
-                    };
-
-                let ret = match request.method() {
-                    Method::Get => Self::handle_get(&waj, &url, !etag_match),
-                    Method::Head => Self::handle_get(&waj, &url, false),
-                    _ => Err("Not a valid request".into()),
-                };
-
-                let elapsed_time = now.elapsed();
-
-                match ret {
-                    Err(e) => {
-                        error!(
-                            "[{request_id} {}µs {url}] Error : {e}",
-                            elapsed_time.as_micros()
-                        );
-                        request.respond(Response::empty(StatusCode(500))).unwrap();
-                    }
-                    Ok(mut response) => {
-                        trace!("[{request_id} {}µs {url}] Ok", elapsed_time.as_micros());
-                        response.add_header(Header {
-                            field: "Cache-Control".parse().unwrap(),
-                            value: "max-age=86400, must-revalidate".parse().unwrap(),
-                        });
-                        response.add_header(Header {
-                            field: "ETag".parse().unwrap(),
-                            value: etag_value.clone().into_ascii_string().unwrap(),
-                        });
-                        if etag_match {
-                            request
-                                .respond(response.with_status_code(StatusCode(304)))
-                                .unwrap();
-                        } else {
-                            request.respond(response).unwrap();
-                        }
-                    }
-                }
             });
 
             guards.push(guard);
