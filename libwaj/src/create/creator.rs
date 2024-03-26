@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use jbk::creator::OutStream;
 
-use super::{Adder, ConcatMode, EntryKind, EntryStoreCreator, EntryTrait, FsAdder, Void};
+use super::{
+    Adder, ConcatMode, EntryKind, EntryStoreCreator, EntryTrait, FsAdder, StripPrefix, Void,
+};
 use crate::common::VENDOR_ID;
 
 struct Redirect {
@@ -49,10 +51,10 @@ pub struct FsCreator {
     adder: ContentAdder<std::fs::File>,
     directory_pack: jbk::creator::DirectoryPackCreator,
     entry_store_creator: EntryStoreCreator,
-    strip_prefix: PathBuf,
     concat_mode: ConcatMode,
     out_dir: PathBuf,
     tmp_path_content_pack: tempfile::TempPath,
+    namer: StripPrefix,
 }
 
 impl FsCreator {
@@ -92,10 +94,10 @@ impl FsCreator {
             )),
             directory_pack,
             entry_store_creator,
-            strip_prefix,
             concat_mode,
             out_dir,
             tmp_path_content_pack,
+            namer: StripPrefix::new(strip_prefix),
         })
     }
 
@@ -195,7 +197,7 @@ impl FsCreator {
     }
 
     pub fn add_from_path(&mut self, path: &Path) -> Void {
-        let mut fs_adder = FsAdder::new(&mut self.entry_store_creator, &self.strip_prefix);
+        let mut fs_adder = FsAdder::new(&mut self.entry_store_creator, &self.namer);
         fs_adder.add_from_path(path, &mut self.adder)
     }
 
