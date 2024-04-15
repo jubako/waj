@@ -51,22 +51,6 @@ impl EntryStoreCreator {
         }
     }
 
-    pub fn finalize(self, directory_pack: &mut jbk::creator::DirectoryPackCreator) -> Void {
-        let entry_count = self.entry_store.len();
-        directory_pack.add_value_store(self.path_store);
-        directory_pack.add_value_store(self.mime_store);
-        let entry_store_id = directory_pack.add_entry_store(self.entry_store);
-        directory_pack.create_index(
-            "waj_entries",
-            Default::default(),
-            jbk::PropertyIdx::from(0),
-            entry_store_id,
-            jbk::EntryCount::from(entry_count as u32),
-            jbk::EntryIdx::from(0).into(),
-        );
-        Ok(())
-    }
-
     pub fn add_entry<E>(&mut self, entry: &E) -> Void
     where
         E: EntryTrait,
@@ -97,10 +81,28 @@ impl EntryStoreCreator {
     }
 }
 
+impl jbk::creator::EntryStoreTrait for EntryStoreCreator {
+    fn finalize(self: Box<Self>, directory_pack: &mut jbk::creator::DirectoryPackCreator) {
+        let entry_count = self.entry_store.len();
+        directory_pack.add_value_store(self.path_store);
+        directory_pack.add_value_store(self.mime_store);
+        let entry_store_id = directory_pack.add_entry_store(self.entry_store);
+        directory_pack.create_index(
+            "waj_entries",
+            Default::default(),
+            jbk::PropertyIdx::from(0),
+            entry_store_id,
+            jbk::EntryCount::from(entry_count as u32),
+            jbk::EntryIdx::from(0).into(),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::*;
     use super::*;
+    use jbk::creator::EntryStoreTrait;
     use mime_guess::mime;
 
     #[test]
@@ -111,8 +113,8 @@ mod tests {
             Default::default(),
         );
 
-        let entry_store_creator = EntryStoreCreator::new(None);
-        assert!(entry_store_creator.finalize(&mut creator).is_ok());
+        let entry_store_creator = Box::new(EntryStoreCreator::new(None));
+        entry_store_creator.finalize(&mut creator);
         Ok(())
     }
 
@@ -141,10 +143,10 @@ mod tests {
             Default::default(),
         );
 
-        let mut entry_store_creator = EntryStoreCreator::new(None);
+        let mut entry_store_creator = Box::new(EntryStoreCreator::new(None));
         let entry = SimpleEntry("foo.txt".into());
         entry_store_creator.add_entry(&entry)?;
-        entry_store_creator.finalize(&mut creator)?;
+        entry_store_creator.finalize(&mut creator);
         creator.finalize(&mut waj_file)?;
         assert!(waj_name.is_file());
 
