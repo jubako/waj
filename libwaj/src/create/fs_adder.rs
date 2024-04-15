@@ -1,5 +1,5 @@
 use crate::create::{EntryKind, EntryStoreCreator, EntryTrait, Void};
-use jbk::creator::InputReader;
+use jbk::creator::{ContentAdder, InputReader};
 use mime_guess::mime;
 use std::borrow::Cow;
 use std::fs;
@@ -12,10 +12,6 @@ pub enum FsEntryKind {
     Other,
 }
 
-pub trait Adder {
-    fn add<R: InputReader>(&mut self, reader: R) -> jbk::Result<jbk::ContentAddress>;
-}
-
 pub struct FsEntry {
     pub kind: FsEntryKind,
     pub path: PathBuf,
@@ -23,10 +19,10 @@ pub struct FsEntry {
 }
 
 impl FsEntry {
-    pub fn new_from_walk_entry<A: Adder>(
+    pub fn new_from_walk_entry(
         dir_entry: walkdir::DirEntry,
         name: String,
-        adder: &mut A,
+        adder: &mut impl ContentAdder,
     ) -> jbk::Result<Box<Self>> {
         let fs_path = dir_entry.path().to_path_buf();
         let attr = dir_entry.metadata().unwrap();
@@ -49,7 +45,7 @@ impl FsEntry {
                 }
             };
             reader.seek(SeekFrom::Start(0))?;
-            let content_address = adder.add(reader)?;
+            let content_address = adder.add_content(reader)?;
             FsEntryKind::File(content_address, mime_type)
         } else if attr.is_symlink() {
             FsEntryKind::Link
@@ -121,19 +117,22 @@ impl<'a> FsAdder<'a> {
         Self { creator, namer }
     }
 
-    pub fn add_from_path<P, A>(&mut self, path: P, adder: &mut A) -> Void
+    pub fn add_from_path<P>(&mut self, path: P, adder: &mut impl ContentAdder) -> Void
     where
         P: AsRef<std::path::Path>,
-        A: Adder,
     {
         self.add_from_path_with_filter(path, |_e| true, adder)
     }
 
-    pub fn add_from_path_with_filter<P, F, A>(&mut self, path: P, filter: F, adder: &mut A) -> Void
+    pub fn add_from_path_with_filter<P, F>(
+        &mut self,
+        path: P,
+        filter: F,
+        adder: &mut impl ContentAdder,
+    ) -> Void
     where
         P: AsRef<std::path::Path>,
         F: FnMut(&walkdir::DirEntry) -> bool,
-        A: Adder,
     {
         let walker = walkdir::WalkDir::new(path);
         let walker = walker.into_iter();
