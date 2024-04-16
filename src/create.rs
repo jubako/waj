@@ -6,6 +6,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
+use waj::create::StripPrefix;
 
 #[derive(Parser)]
 pub struct Options {
@@ -165,9 +166,10 @@ pub fn create(options: Options) -> Result<()> {
 
     let jbk_progress = Arc::new(ProgressBar::new());
     let progress = Rc::new(CachedSize::new());
+    let namer = Box::new(StripPrefix::new(strip_prefix));
     let mut creator = waj::create::FsCreator::new(
         &out_file,
-        strip_prefix,
+        namer,
         concat_mode,
         jbk_progress,
         Rc::clone(&progress) as Rc<dyn jbk::creator::CacheProgress>,

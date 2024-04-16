@@ -87,17 +87,38 @@ impl EntryTrait for FsEntry {
     }
 }
 
+pub trait Namer {
+    fn rename(&self, path: &Path) -> String;
+}
+
+pub struct StripPrefix {
+    prefix: PathBuf,
+}
+
+impl StripPrefix {
+    pub fn new(prefix: PathBuf) -> Self {
+        Self { prefix }
+    }
+}
+
+impl Namer for StripPrefix {
+    fn rename(&self, path: &Path) -> String {
+        path.strip_prefix(&self.prefix)
+            .unwrap()
+            .to_str()
+            .unwrap_or_else(|| panic!("{path:?} must be a utf8"))
+            .to_owned()
+    }
+}
+
 pub struct FsAdder<'a> {
     creator: &'a mut EntryStoreCreator,
-    strip_prefix: &'a Path,
+    namer: &'a dyn Namer,
 }
 
 impl<'a> FsAdder<'a> {
-    pub fn new(creator: &'a mut EntryStoreCreator, strip_prefix: &'a Path) -> Self {
-        Self {
-            creator,
-            strip_prefix,
-        }
+    pub fn new(creator: &'a mut EntryStoreCreator, namer: &'a dyn Namer) -> Self {
+        Self { creator, namer }
     }
 
     pub fn add_from_path<P, A>(&mut self, path: P, adder: &mut A) -> Void
@@ -119,12 +140,7 @@ impl<'a> FsAdder<'a> {
         for entry in walker.filter_entry(filter) {
             let entry = entry.unwrap();
             let entry_path = entry.path();
-            let waj_path = entry_path
-                .strip_prefix(self.strip_prefix)
-                .unwrap()
-                .to_str()
-                .unwrap_or_else(|| panic!("{entry_path:?} must be a utf8"))
-                .to_owned();
+            let waj_path = self.namer.rename(entry_path);
             if waj_path.is_empty() {
                 continue;
             }

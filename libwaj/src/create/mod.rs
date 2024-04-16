@@ -5,7 +5,7 @@ mod fs_adder;
 
 pub use creator::FsCreator;
 pub use entry_store_creator::EntryStoreCreator;
-pub use fs_adder::{Adder, FsAdder};
+pub use fs_adder::{Adder, FsAdder, Namer, StripPrefix};
 use std::borrow::Cow;
 
 pub enum ConcatMode {

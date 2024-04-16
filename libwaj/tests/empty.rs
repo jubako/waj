@@ -9,7 +9,7 @@ fn test_empty() {
     );
     let creator = libwaj::create::FsCreator::new(
         &waj_file,
-        "".into(),
+        Box::new(libwaj::create::StripPrefix::new("".into())),
         libwaj::create::ConcatMode::OneFile,
         Arc::new(()),
         Rc::new(()),
