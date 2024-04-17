@@ -159,9 +159,9 @@ pub fn create(options: Options) -> Result<()> {
     let out_file = std::env::current_dir()?.join(out_file);
 
     let concat_mode = if options.one_file {
-        waj::create::ConcatMode::OneFile
+        jbk::creator::ConcatMode::OneFile
     } else {
-        waj::create::ConcatMode::TwoFiles
+        jbk::creator::ConcatMode::TwoFiles
     };
 
     let jbk_progress = Arc::new(ProgressBar::new());
