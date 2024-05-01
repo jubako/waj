@@ -1,5 +1,5 @@
 use crate::create::{EntryKind, EntryStoreCreator, EntryTrait, Void};
-use jbk::creator::{ContentAdder, InputReader};
+use jbk::creator::{CompHint, ContentAdder, InputReader};
 use mime_guess::mime;
 use std::borrow::Cow;
 use std::fs;
@@ -45,7 +45,7 @@ impl FsEntry {
                 }
             };
             reader.seek(SeekFrom::Start(0))?;
-            let content_address = adder.add_content(reader)?;
+            let content_address = adder.add_content(Box::new(reader), CompHint::Detect)?;
             FsEntryKind::File(content_address, mime_type)
         } else if attr.is_symlink() {
             FsEntryKind::Link
