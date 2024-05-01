@@ -147,7 +147,7 @@ mod tests {
         let entry = SimpleEntry("foo.txt".into());
         entry_store_creator.add_entry(&entry)?;
         entry_store_creator.finalize(&mut creator);
-        creator.finalize(&mut waj_file)?;
+        creator.finalize()?.write(&mut waj_file)?;
         assert!(waj_name.is_file());
 
         let directory_pack =
