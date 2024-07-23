@@ -521,7 +521,6 @@ dependencies = [
 [[package]]
 name = "jubako"
 version = "0.3.0-dev"
-source = "git+https://github.com/jubako/jubako.git#033cc321ae0d8928a8d5abf326a9d491d1c04308"
 dependencies = [
  "blake3",
  "bstr",
@@ -1158,5 +1157,5 @@ dependencies = [
 ]
 
 [[patch.unused]]
-name = "jubako"
-version = "0.3.0-dev"
+name = "libarx"
+version = "0.2.1"
