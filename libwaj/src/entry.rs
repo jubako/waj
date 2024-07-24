@@ -1,5 +1,6 @@
-use crate::common::{AllProperties, Builder, Reader};
+use crate::common::{AllProperties, Builder};
 use jbk::reader::builder::PropertyBuilderTrait;
+use jbk::reader::ByteSlice;
 
 pub struct CommonPart {
     idx: jbk::EntryIdx,
@@ -68,7 +69,7 @@ mod private {
             }
         }
 
-        fn create_entry(&self, idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<CommonPart> {
+        fn create_entry(&self, idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<CommonPart> {
             let path_prop = self.path_property.create(reader)?;
             let mut path = vec![];
             path_prop.resolve_to_vec(&mut path)?;
@@ -93,7 +94,7 @@ mod private {
             }
         }
 
-        fn create_entry(&self, idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+        fn create_entry(&self, idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
             let mimetype_prop = self.mimetype_property.create(reader)?;
             let mut mimetype = vec![];
             mimetype_prop.resolve_to_vec(&mut mimetype)?;
@@ -120,7 +121,7 @@ mod private {
             }
         }
 
-        fn create_entry(&self, idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+        fn create_entry(&self, idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
             let common = self.common.create_entry(idx, reader)?;
             let target_prop = self.link_property.create(reader)?;
             let mut target = vec![];

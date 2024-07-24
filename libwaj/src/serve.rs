@@ -1,7 +1,8 @@
-use crate::common::{AllProperties, Builder, Entry, Reader};
+use crate::common::{AllProperties, Builder, Entry};
 use crate::Waj;
 use ascii::IntoAsciiString;
 use jbk::reader::builder::PropertyBuilderTrait;
+use jbk::reader::{ByteRegion, ByteSlice};
 use log::{debug, error, trace, warn};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
@@ -50,7 +51,7 @@ impl Builder for ContentBuilder {
         }
     }
 
-    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
         let content_address = self.content_address_property.create(reader)?;
         let mut mimetype = Default::default();
         self.content_mimetype_property
@@ -76,7 +77,7 @@ impl Builder for RedirectBuilder {
         }
     }
 
-    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
         let target_prop = self.target_property.create(reader)?;
         let mut target = vec![];
         target_prop.resolve_to_vec(&mut target)?;
@@ -119,21 +120,21 @@ impl RequestHandler {
     ///
     /// No tricky part.
     /// We set cache header as content will never change without waj change.
-    fn build_response_from_reader(
+    fn build_response_from_bytes(
         &self,
-        reader: jbk::Reader,
+        bytes: ByteRegion,
         with_content: bool,
         status_code: u16,
     ) -> ResponseBox {
         let mut response = Self::build_response_from_read(
-            reader.create_flux_all().to_owned(),
-            Some(reader.size().into_usize()),
+            bytes.stream(),
+            Some(bytes.size().into_usize()),
             with_content,
             status_code,
         );
         response.add_header(Header {
             field: "Content-Length".parse().unwrap(),
-            value: reader.size().into_usize().to_string().parse().unwrap(),
+            value: bytes.size().into_usize().to_string().parse().unwrap(),
         });
         response.add_header(Header {
             field: "Cache-Control".parse().unwrap(),
@@ -155,12 +156,12 @@ impl RequestHandler {
     /// If not, we have to generate a dummy content (and no cache, as it may change if server change)
     fn build_content_response(
         &self,
-        reader: jbk::reader::MayMissPack<jbk::Reader>,
+        bytes: jbk::reader::MayMissPack<ByteRegion>,
         with_content: bool,
         status_code: u16,
         mimetype: &str,
     ) -> jbk::Result<ResponseBox> {
-        match reader {
+        match bytes {
             jbk::reader::MayMissPack::MISSING(pack_info) => {
                 let (msg, mimetype, status_code) = match mimetype {
                     "text/html" | "text/css" | "application/javascript" => {
@@ -199,9 +200,8 @@ impl RequestHandler {
                 });
                 Ok(response)
             }
-            jbk::reader::MayMissPack::FOUND(reader) => {
-                let mut response =
-                    self.build_response_from_reader(reader, with_content, status_code);
+            jbk::reader::MayMissPack::FOUND(bytes) => {
+                let mut response = self.build_response_from_bytes(bytes, with_content, status_code);
                 response.add_header(Header {
                     field: "Content-Type".parse().unwrap(),
                     value: mimetype.parse().unwrap(),
@@ -223,7 +223,7 @@ impl RequestHandler {
                 match e {
                     Entry::Content(e) => {
                         return self.build_content_response(
-                            self.waj.get_reader(e.content_address)?,
+                            self.waj.get_bytes(e.content_address)?,
                             with_content,
                             200,
                             &String::from_utf8_lossy(&e.mimetype),
@@ -245,10 +245,8 @@ impl RequestHandler {
         // No entry found. Return 404. If we have one in the Waj use it, else return empty 404.
         warn!("{url} not found");
         if let Ok(Entry::Content(e)) = self.waj.get_entry::<FullBuilder>("404.html") {
-            if let jbk::reader::MayMissPack::FOUND(reader) =
-                self.waj.get_reader(e.content_address)?
-            {
-                let mut response = self.build_response_from_reader(reader, with_content, 404);
+            if let jbk::reader::MayMissPack::FOUND(bytes) = self.waj.get_bytes(e.content_address)? {
+                let mut response = self.build_response_from_bytes(bytes, with_content, 404);
                 response.add_header(Header {
                     field: "Content-Type".parse().unwrap(),
                     value: String::from_utf8_lossy(&e.mimetype).parse().unwrap(),

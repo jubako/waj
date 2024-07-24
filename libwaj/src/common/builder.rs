@@ -1,19 +1,20 @@
 use super::entry::*;
 use super::entry_type::EntryType;
-use super::{AllProperties, Reader};
+use super::AllProperties;
 use jbk::reader::builder::PropertyBuilderTrait;
+use jbk::reader::ByteSlice;
 
 pub trait Builder {
     type Entry;
 
     fn new(properties: &AllProperties) -> Self;
-    fn create_entry(&self, idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry>;
+    fn create_entry(&self, idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry>;
 }
 
 impl Builder for () {
     type Entry = ();
     fn new(_properties: &AllProperties) -> Self {}
-    fn create_entry(&self, _idx: jbk::EntryIdx, _reader: &Reader) -> jbk::Result<Self::Entry> {
+    fn create_entry(&self, _idx: jbk::EntryIdx, _reader: &ByteSlice) -> jbk::Result<Self::Entry> {
         Ok(())
     }
 }
@@ -25,12 +26,12 @@ pub trait FullBuilderTrait {
     fn create_content(
         &self,
         idx: jbk::EntryIdx,
-        reader: &Reader,
+        reader: &ByteSlice,
     ) -> jbk::Result<<Self::Entry as EntryDef>::Content>;
     fn create_redirect(
         &self,
         idx: jbk::EntryIdx,
-        reader: &Reader,
+        reader: &ByteSlice,
     ) -> jbk::Result<<Self::Entry as EntryDef>::Redirect>;
 }
 
@@ -50,7 +51,7 @@ where
     fn create_content(
         &self,
         idx: jbk::EntryIdx,
-        reader: &Reader,
+        reader: &ByteSlice,
     ) -> jbk::Result<<Self::Entry as EntryDef>::Content> {
         self.0.create_entry(idx, reader)
     }
@@ -58,7 +59,7 @@ where
     fn create_redirect(
         &self,
         idx: jbk::EntryIdx,
-        reader: &Reader,
+        reader: &ByteSlice,
     ) -> jbk::Result<<Self::Entry as EntryDef>::Redirect> {
         self.1.create_entry(idx, reader)
     }

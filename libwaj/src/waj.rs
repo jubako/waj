@@ -1,9 +1,7 @@
 use super::common::{AllProperties, Builder, Comparator, Entry, FullBuilderTrait, RealBuilder};
 use jbk::reader::builder::PropertyBuilderTrait;
-use jbk::reader::Range;
+use jbk::reader::{ByteSlice, Range};
 use std::path::Path;
-
-pub use jbk::SubReader as Reader;
 
 pub struct Waj {
     container: jbk::reader::Container,
@@ -41,7 +39,7 @@ impl Builder for PathBuilder {
         }
     }
 
-    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &Reader) -> jbk::Result<Self::Entry> {
+    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
         let path_prop = self.path_property.create(reader)?;
         let mut path = vec![];
         path_prop.resolve_to_vec(&mut path)?;
