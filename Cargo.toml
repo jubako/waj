@@ -16,6 +16,7 @@ jbk = { git = "https://github.com/jubako/jubako.git", package = "jubako", versio
 name = "waj"
 description = "Store a web site in a package"
 categories = ["command-line-utilities", "compression"]
+keywords = ["web-archive", "static-website", "container"]
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
