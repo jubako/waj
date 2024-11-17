@@ -126,16 +126,19 @@ impl RequestHandler {
         with_content: bool,
         status_code: u16,
     ) -> ResponseBox {
-        let mut response = Self::build_response_from_read(
-            bytes.stream(),
-            Some(bytes.size().into_usize()),
-            with_content,
-            status_code,
-        );
-        response.add_header(Header {
-            field: "Content-Length".parse().unwrap(),
-            value: bytes.size().into_usize().to_string().parse().unwrap(),
-        });
+        let content_size = if bytes.size().into_u64() <= u16::MAX as u64 {
+            Some(bytes.size().into_u64() as usize)
+        } else {
+            None
+        };
+        let mut response =
+            Self::build_response_from_read(bytes.stream(), content_size, with_content, status_code);
+        if let Some(size) = content_size {
+            response.add_header(Header {
+                field: "Content-Length".parse().unwrap(),
+                value: size.to_string().parse().unwrap(),
+            });
+        }
         response.add_header(Header {
             field: "Cache-Control".parse().unwrap(),
             value: "max-age=86400, must-revalidate".parse().unwrap(),
