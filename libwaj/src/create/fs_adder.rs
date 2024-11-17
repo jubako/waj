@@ -32,7 +32,7 @@ impl FsEntry {
                 Some(m) => m,
                 None => {
                     let mut buf = [0u8; 100];
-                    let size = std::cmp::min(100, reader.size().into_usize());
+                    let size = std::cmp::min(100, reader.size().into_u64() as usize);
                     reader.read_exact(&mut buf[..size])?;
                     (|| {
                         for window in buf[..size].windows(4) {
