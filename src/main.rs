@@ -8,8 +8,14 @@ use log::error;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+const VERSION: &str = const_format::formatcp!(
+    "{} (git:{})",
+    clap::crate_version!(),
+    git_version::git_version!(args = ["--dirty=*", "--tags", "--always"])
+);
+
 #[derive(Parser)]
-#[command(name = "waj", author, version, about, long_about=None)]
+#[command(name = "waj", author, version, long_version=VERSION, about, long_about=None)]
 struct Cli {
     /// Set verbose level. Can be specify several times to augment verbose level.
     #[arg(short, long, action=clap::ArgAction::Count, global=true)]
