@@ -53,17 +53,6 @@ pub struct Options {
 
     #[arg(from_global)]
     verbose: u8,
-
-    // [TODO] Remove on next "major" (breaking api) version
-    #[arg(
-        short = 'f',
-        long = "file",
-        hide = true,
-        conflicts_with("outfile"),
-        required_unless_present("outfile"),
-        value_parser
-    )]
-    outfile_old: Option<PathBuf>,
 }
 
 fn get_files_to_add(options: &Options) -> jbk::Result<Vec<PathBuf>> {
@@ -151,11 +140,9 @@ pub fn create(options: Options) -> Result<()> {
         None => PathBuf::new(),
     };
 
-    let out_file = if let Some(ref outfile) = options.outfile_old {
-        outfile
-    } else {
-        options.outfile.as_ref().unwrap()
-    };
+    let out_file = options.outfile.as_ref().expect(
+        "Clap unsure it is Some, except if we have list_compressions, and so we return early",
+    );
     let out_file = std::env::current_dir()?.join(out_file);
 
     let concat_mode = if options.one_file {
