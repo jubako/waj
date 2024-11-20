@@ -17,9 +17,9 @@ pub struct Options {
     #[arg(
         short,
         long,
+        value_parser,
+        required_unless_present("list_compressions"),
         value_hint=ValueHint::FilePath,
-        required=true,
-        value_parser
     )]
     outfile: Option<PathBuf>,
 
@@ -47,6 +47,14 @@ pub struct Options {
 
     #[arg(short = '1', long, required = false, default_value_t = false, action)]
     one_file: bool,
+
+    /// Set compression algorithm to use
+    #[arg(short, long, value_parser=jbk::cmd_utils::compression_arg_parser, required=false, default_value="zstd")]
+    compression: jbk::creator::Compression,
+
+    /// List available compression algorithms
+    #[arg(long, default_value_t = false, action)]
+    list_compressions: bool,
 
     #[arg(short, long, required = false, default_value_t = false, action)]
     force: bool,
@@ -149,6 +157,11 @@ impl CachedSize {
 }
 
 pub fn create(options: Options) -> Result<()> {
+    if options.list_compressions {
+        jbk::cmd_utils::list_compressions();
+        return Ok(());
+    }
+
     if options.verbose > 0 {
         println!("Creating archive {:?}", options.outfile);
         println!("With files {:?}", options.infiles);
@@ -180,6 +193,7 @@ pub fn create(options: Options) -> Result<()> {
         concat_mode,
         jbk_progress,
         Rc::clone(&progress) as Rc<dyn jbk::creator::CacheProgress>,
+        options.compression,
     )?;
 
     let files_to_add = get_files_to_add(&options)?;
