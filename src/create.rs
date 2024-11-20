@@ -45,8 +45,8 @@ pub struct Options {
     #[arg(short = 'L', long = "file-list", group = "input", verbatim_doc_comment, value_hint=ValueHint::FilePath)]
     file_list: Option<PathBuf>,
 
-    #[arg(short = '1', long, required = false, default_value_t = false, action)]
-    one_file: bool,
+    #[command(flatten)]
+    concat_mode: Option<jbk::cmd_utils::ConcatMode>,
 
     /// Set compression algorithm to use
     #[arg(short, long, value_parser=jbk::cmd_utils::compression_arg_parser, required=false, default_value="zstd")]
@@ -178,19 +178,16 @@ pub fn create(options: Options) -> Result<()> {
     let out_file = std::env::current_dir()?.join(out_file);
     check_output_path_writable(&out_file, options.force)?;
 
-    let concat_mode = if options.one_file {
-        jbk::creator::ConcatMode::OneFile
-    } else {
-        jbk::creator::ConcatMode::TwoFiles
-    };
-
     let jbk_progress = Arc::new(ProgressBar::new());
     let progress = Rc::new(CachedSize::new());
     let namer = Box::new(StripPrefix::new(strip_prefix));
     let mut creator = waj::create::FsCreator::new(
         &out_file,
         namer,
-        concat_mode,
+        match options.concat_mode {
+            None => jbk::creator::ConcatMode::OneFile,
+            Some(e) => e.into(),
+        },
         jbk_progress,
         Rc::clone(&progress) as Rc<dyn jbk::creator::CacheProgress>,
         options.compression,
