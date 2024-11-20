@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueHint};
 use std::cell::Cell;
 use std::fs::File;
@@ -79,19 +79,6 @@ fn check_output_path_writable(out_file: &Path, force: bool) -> Result<()> {
         ))
     } else {
         Ok(())
-    }
-}
-
-fn get_files_to_add(options: &Options) -> jbk::Result<Vec<PathBuf>> {
-    if let Some(file_list) = &options.file_list {
-        let file = File::open(file_list)?;
-        let mut files = Vec::new();
-        for line in BufReader::new(file).lines() {
-            files.push(line?.into());
-        }
-        Ok(files)
-    } else {
-        Ok(options.infiles.clone())
     }
 }
 
@@ -178,8 +165,19 @@ pub fn create(options: Options) -> Result<()> {
     let out_file = std::env::current_dir()?.join(out_file);
     check_output_path_writable(&out_file, options.force)?;
 
+    let file_list = options
+        .file_list
+        .as_ref()
+        .map(std::path::absolute)
+        .transpose()?;
+
+    if let Some(base_dir) = &options.base_dir {
+        std::env::set_current_dir(base_dir)?;
+    };
+
     let jbk_progress = Arc::new(ProgressBar::new());
     let progress = Rc::new(CachedSize::new());
+
     let namer = Box::new(StripPrefix::new(strip_prefix));
     let mut creator = waj::create::FsCreator::new(
         &out_file,
@@ -193,10 +191,25 @@ pub fn create(options: Options) -> Result<()> {
         options.compression,
     )?;
 
-    let files_to_add = get_files_to_add(&options)?;
-
-    if let Some(base_dir) = &options.base_dir {
-        std::env::set_current_dir(base_dir)?;
+    let files_to_add = if let Some(file_list) = file_list {
+        let file = File::open(&file_list)
+            .with_context(|| format!("Cannot open {}", file_list.display()))?;
+        BufReader::new(file)
+            .lines()
+            .map(|l| -> Result<PathBuf> { Ok(l?.into()) })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        options
+            .infiles
+            .iter()
+            .map(|f| -> Result<PathBuf> {
+                if f.is_absolute() {
+                    Err(anyhow!("Input file ({}) must be relative.", f.display()))
+                } else {
+                    Ok(f.clone())
+                }
+            })
+            .collect::<Result<Vec<_>>>()?
     };
 
     for infile in files_to_add {
