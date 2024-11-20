@@ -1,9 +1,9 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{Parser, ValueHint};
 use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use waj::create::StripPrefix;
@@ -48,11 +48,30 @@ pub struct Options {
     #[arg(short = '1', long, required = false, default_value_t = false, action)]
     one_file: bool,
 
+    #[arg(short, long, required = false, default_value_t = false, action)]
+    force: bool,
+
     #[arg(short, long, required = false)]
     main: Option<String>,
 
     #[arg(from_global)]
     verbose: u8,
+}
+
+fn check_output_path_writable(out_file: &Path, force: bool) -> Result<()> {
+    if !out_file.parent().unwrap().is_dir() {
+        Err(anyhow!(
+            "Directory {} doesn't exist",
+            out_file.parent().unwrap().display()
+        ))
+    } else if out_file.exists() && !force {
+        Err(anyhow!(
+            "File {} already exists. Use option --force to overwrite it.",
+            out_file.display()
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn get_files_to_add(options: &Options) -> jbk::Result<Vec<PathBuf>> {
@@ -144,6 +163,7 @@ pub fn create(options: Options) -> Result<()> {
         "Clap unsure it is Some, except if we have list_compressions, and so we return early",
     );
     let out_file = std::env::current_dir()?.join(out_file);
+    check_output_path_writable(&out_file, options.force)?;
 
     let concat_mode = if options.one_file {
         jbk::creator::ConcatMode::OneFile
