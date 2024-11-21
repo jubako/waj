@@ -35,12 +35,13 @@ impl FsCreator {
         concat_mode: ConcatMode,
         progress: Arc<dyn jbk::creator::Progress>,
         cache_progress: Rc<dyn jbk::creator::CacheProgress>,
+        compression: jbk::creator::Compression,
     ) -> jbk::Result<Self> {
         let basic_creator = BasicCreator::new(
             outfile,
             concat_mode,
             crate::VENDOR_ID,
-            jbk::creator::Compression::zstd(),
+            compression,
             progress,
         )?;
 

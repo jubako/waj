@@ -13,6 +13,7 @@ fn test_empty() {
         jbk::creator::ConcatMode::OneFile,
         Arc::new(()),
         Rc::new(()),
+        Default::default(),
     )
     .unwrap();
     assert!(creator.finalize(&waj_file).is_ok());
