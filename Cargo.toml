@@ -3,7 +3,7 @@ members = ["libwaj"]
 
 [workspace.package]
 edition = "2021"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
 repository = "https://github.com/jubako/waj"
 homepage = "https://github.com/jubako/waj"
@@ -22,6 +22,7 @@ authors.workspace = true
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
+default-run = "waj"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -30,7 +31,7 @@ clap = { version = "4.0.32", features = ["derive", "cargo"] }
 clap_mangen = "0.2.20"
 clap_complete = "4.5.0"
 human-panic = "2.0.2"
-waj = { path = "libwaj", package = "libwaj", version = "0.2.1" }
+waj = { path = "libwaj", package = "libwaj", version = "0.3.0" }
 indicatif = "0.17.3"
 env_logger = "0.11.5"
 anyhow = "1.0.75"

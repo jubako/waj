@@ -592,7 +592,7 @@ checksum = "433bfe06b8c75da9b2e3fbea6e5329ff87748f0b144ef75306e674c3f6f7c13f"
 
 [[package]]
 name = "libwaj"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "ascii",
  "blake3",
@@ -1023,7 +1023,7 @@ dependencies = [
 
 [[package]]
 name = "waj"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
