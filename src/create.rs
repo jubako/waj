@@ -30,6 +30,8 @@ pub struct Options {
     /// Move to BASE_DIR before starting adding content to arx archive.
     ///
     /// Argument `INFILES` or `STRIP_PREFIX` must be relative to `BASE_DIR`.
+    /// `OUTFILE` and `FILE_LIST` path is always relative to currrent directory.
+    /// Paths listed in `FILE_LIST` are related to `BASE_DIR`
     #[arg(short = 'C', required = false, value_hint=ValueHint::DirPath)]
     base_dir: Option<PathBuf>,
 
@@ -42,6 +44,8 @@ pub struct Options {
     /// Get the list of files/directories to add from the FILE_LIST (incompatible with INFILES)
     ///
     /// This is an option incompatible with `INFILES`.
+    ///
+    /// Relative path are relative to the current working dir. `BASE_DIR` option is used after resolving relative path.
     #[arg(short = 'L', long = "file-list", group = "input", verbatim_doc_comment, value_hint=ValueHint::FilePath)]
     file_list: Option<PathBuf>,
 
