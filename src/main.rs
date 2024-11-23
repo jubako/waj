@@ -9,9 +9,14 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 const VERSION: &str = const_format::formatcp!(
-    "{} (git:{})",
+    "{}{}",
     clap::crate_version!(),
-    git_version::git_version!(args = ["--dirty=*", "--tags", "--always"])
+    git_version::git_version!(
+        args = ["--dirty=*", "--tags", "--always"],
+        fallback = "",
+        prefix = " (git:",
+        suffix = ")"
+    )
 );
 
 #[derive(Parser)]
