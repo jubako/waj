@@ -1,3 +1,5 @@
+use crate::error::WajFormatError;
+
 #[repr(u8)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum EntryType {
@@ -6,12 +8,12 @@ pub enum EntryType {
 }
 
 impl TryFrom<jbk::VariantIdx> for EntryType {
-    type Error = String;
+    type Error = WajFormatError;
     fn try_from(id: jbk::VariantIdx) -> Result<Self, Self::Error> {
         match id.into_u8() {
             0 => Ok(Self::Content),
             1 => Ok(Self::Redirect),
-            _ => Err("Invalid variant id".into()),
+            _ => Err(WajFormatError("Invalid variant id")),
         }
     }
 }

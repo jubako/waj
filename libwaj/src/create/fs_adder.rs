@@ -1,4 +1,5 @@
 use crate::create::{EntryKind, EntryStoreCreator, EntryTrait, Void};
+use crate::error::CreatorError;
 use jbk::creator::{CompHint, ContentAdder, InputReader};
 use mime_guess::mime;
 use std::borrow::Cow;
@@ -23,7 +24,7 @@ impl FsEntry {
         dir_entry: walkdir::DirEntry,
         name: String,
         adder: &mut impl ContentAdder,
-    ) -> jbk::Result<Box<Self>> {
+    ) -> Result<Box<Self>, CreatorError> {
         let fs_path = dir_entry.path().to_path_buf();
         let attr = dir_entry.metadata().unwrap();
         let kind = if attr.is_file() {
@@ -61,7 +62,7 @@ impl FsEntry {
 }
 
 impl EntryTrait for FsEntry {
-    fn kind(&self) -> jbk::Result<Option<EntryKind>> {
+    fn kind(&self) -> Result<Option<EntryKind>, CreatorError> {
         Ok(match self.kind {
             FsEntryKind::File(content_address, ref mime) => {
                 Some(EntryKind::Content(content_address, mime.clone()))

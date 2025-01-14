@@ -29,17 +29,15 @@ fn main() -> ExitCode {
                         ExitCode::FAILURE
                     }
                 },
-                Err(e) => match e.error {
-                    jbk::ErrorKind::NotAJbk => {
-                        eprintln!("Impossible to locate a Waj archive in the executable.");
-                        eprintln!("This binary is not intented to be directly used, you must put a Waj archive at its end.");
-                        ExitCode::FAILURE
-                    }
-                    _ => {
-                        eprintln!("Error: {e}");
-                        ExitCode::FAILURE
-                    }
-                },
+                Err(waj::error::WajError::BaseError(_)) => {
+                    eprintln!("Impossible to locate a Waj archive in the executable.");
+                    eprintln!("This binary is not intented to be directly used, you must put a Waj archive at its end.");
+                    ExitCode::FAILURE
+                }
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    ExitCode::FAILURE
+                }
             }
         }
         Err(e) => {

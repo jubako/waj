@@ -1,4 +1,5 @@
 use crate::common::{AllProperties, Builder, Entry};
+use crate::error::{BaseError, WajError, WajFormatError};
 use crate::Waj;
 use ascii::IntoAsciiString;
 use jbk::reader::builder::PropertyBuilderTrait;
@@ -163,7 +164,7 @@ impl RequestHandler {
         with_content: bool,
         status_code: u16,
         mimetype: &str,
-    ) -> jbk::Result<ResponseBox> {
+    ) -> Result<ResponseBox, BaseError> {
         match bytes {
             jbk::reader::MayMissPack::MISSING(pack_info) => {
                 let (msg, mimetype, status_code) = match mimetype {
@@ -217,7 +218,7 @@ impl RequestHandler {
     /// Handle a get/head request for a url
     ///
     /// Mostly search for the entry, and generate corresponding response or 404.
-    fn handle_get(&self, url: &str, with_content: bool) -> jbk::Result<ResponseBox> {
+    fn handle_get(&self, url: &str, with_content: bool) -> Result<ResponseBox, BaseError> {
         // Search for entry... Using some variation around url (remove querystring, add index.html...)
         for url in url_variants(url) {
             let url = url.strip_prefix('/').unwrap_or(&url);
@@ -225,12 +226,17 @@ impl RequestHandler {
                 trace!(" => {url}");
                 match e {
                     Entry::Content(e) => {
+                        let bytes = self
+                            .waj
+                            .get_bytes(e.content_address)?
+                            .and_then(|m| m.transpose())
+                            .ok_or(WajFormatError("Content address not valid"))?;
                         return self.build_content_response(
-                            self.waj.get_bytes(e.content_address)?,
+                            bytes,
                             with_content,
                             200,
                             &String::from_utf8_lossy(&e.mimetype),
-                        )
+                        );
                     }
                     Entry::Redirect(r) => {
                         let mut response = Response::empty(StatusCode(302));
@@ -248,7 +254,13 @@ impl RequestHandler {
         // No entry found. Return 404. If we have one in the Waj use it, else return empty 404.
         warn!("{url} not found");
         if let Ok(Entry::Content(e)) = self.waj.get_entry::<FullBuilder>("404.html") {
-            if let jbk::reader::MayMissPack::FOUND(bytes) = self.waj.get_bytes(e.content_address)? {
+            let bytes = self
+                .waj
+                .get_bytes(e.content_address)?
+                .and_then(|m| m.transpose())
+                .ok_or(WajFormatError("Content address not valid"))?;
+
+            if let jbk::reader::MayMissPack::FOUND(bytes) = bytes {
                 let mut response = self.build_response_from_bytes(bytes, with_content, 404);
                 response.add_header(Header {
                     field: "Content-Type".parse().unwrap(),
@@ -290,7 +302,10 @@ impl RequestHandler {
         let ret = match request.method() {
             Method::Get => self.handle_get(&url, !etag_match),
             Method::Head => self.handle_get(&url, false),
-            _ => Err("Not a valid request".into()),
+            _ => {
+                request.respond(Response::empty(StatusCode(500))).unwrap();
+                return;
+            }
         };
 
         let elapsed_time = now.elapsed();
@@ -332,7 +347,7 @@ fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
     None
 }
 impl Server {
-    pub fn new<P: AsRef<Path>>(infile: P) -> jbk::Result<Self> {
+    pub fn new<P: AsRef<Path>>(infile: P) -> Result<Self, WajError> {
         let waj = Arc::new(Waj::new(infile)?);
         let etag_value = "W/\"".to_owned() + &waj.uuid().to_string() + "\"";
 
