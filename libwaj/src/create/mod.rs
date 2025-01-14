@@ -3,6 +3,7 @@ mod entry;
 mod entry_store_creator;
 mod fs_adder;
 
+use crate::error::CreatorError;
 pub use creator::FsCreator;
 pub use entry_store_creator::EntryStoreCreator;
 pub use fs_adder::{FsAdder, Namer, StripPrefix};
@@ -15,10 +16,10 @@ pub enum EntryKind {
 
 pub trait EntryTrait {
     /// The kind of the entry
-    fn kind(&self) -> jbk::Result<Option<EntryKind>>;
+    fn kind(&self) -> Result<Option<EntryKind>, CreatorError>;
 
     /// Under which name the entry will be stored
     fn name(&self) -> Cow<str>;
 }
 
-pub type Void = jbk::Result<()>;
+pub type Void = Result<(), CreatorError>;

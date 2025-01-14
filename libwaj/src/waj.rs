@@ -1,3 +1,5 @@
+use crate::error::{BaseError, WajError, WajFormatError};
+
 use super::common::{AllProperties, Builder, Comparator, Entry, FullBuilderTrait, RealBuilder};
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::{ByteSlice, Range};
@@ -19,7 +21,7 @@ impl std::ops::Deref for Waj {
 fn create_properties(
     container: &jbk::reader::Container,
     index: &jbk::reader::Index,
-) -> jbk::Result<AllProperties> {
+) -> Result<AllProperties, BaseError> {
     AllProperties::new(
         index.get_store(container.get_entry_storage())?,
         container.get_value_storage(),
@@ -48,11 +50,12 @@ impl Builder for PathBuilder {
 }
 
 impl Waj {
-    pub fn new<P: AsRef<Path>>(file: P) -> jbk::Result<Self> {
+    pub fn new<P: AsRef<Path>>(file: P) -> Result<Self, WajError> {
         let container = jbk::reader::Container::new(&file)?;
         let root_index = container
             .get_directory_pack()
-            .get_index_from_name("waj_entries")?;
+            .get_index_from_name("waj_entries")?
+            .ok_or(WajFormatError("No `waj_entries` in the archive"))?;
         let properties = create_properties(&container, &root_index)?;
 
         Ok(Self {
@@ -62,11 +65,14 @@ impl Waj {
         })
     }
 
-    pub fn create_properties(&self, index: &jbk::reader::Index) -> jbk::Result<AllProperties> {
+    pub fn create_properties(
+        &self,
+        index: &jbk::reader::Index,
+    ) -> Result<AllProperties, BaseError> {
         create_properties(&self.container, index)
     }
 
-    pub fn get_entry<B>(&self, path: &str) -> jbk::Result<Entry<B::Entry>>
+    pub fn get_entry<B>(&self, path: &str) -> Result<Entry<B::Entry>, WajError>
     where
         B: FullBuilderTrait,
     {
@@ -75,9 +81,11 @@ impl Waj {
         let current_range: jbk::EntryRange = (&self.root_index).into();
         let comparator = comparator.compare_with(path.as_bytes());
         match current_range.find(&comparator)? {
-            None => Err("Cannot found entry".to_string().into()),
+            None => Err(WajError::PathNotFound(format!("Cannot found entry {path}"))),
             Some(idx) => {
-                let entry = current_range.get_entry(&builder, idx)?;
+                let entry = current_range
+                    .get_entry(&builder, idx)?
+                    .expect("idx should be valid");
                 Ok(entry)
             }
         }

@@ -1,3 +1,4 @@
+use crate::error::{BaseError, WajFormatError};
 use jbk::reader::VariantPart;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -31,11 +32,31 @@ pub struct AllProperties {
     pub redirect_target_property: jbk::reader::builder::ArrayProperty,
 }
 
+macro_rules! prop_as_builder {
+    ($container:expr, $key: literal, $value_storage: expr, $kind:literal) => {
+        $container
+            .get($key)
+            .ok_or(WajFormatError(concat!(
+                "Property `",
+                $key,
+                "` is not present."
+            )))?
+            .as_builder($value_storage)?
+            .ok_or(WajFormatError(concat!(
+                "Property `",
+                $key,
+                "` is not a ",
+                $kind,
+                " proerty."
+            )))?
+    };
+}
+
 impl AllProperties {
     pub fn new(
         store: jbk::reader::EntryStore,
         value_storage: &jbk::reader::ValueStorage,
-    ) -> jbk::Result<Self> {
+    ) -> Result<Self, BaseError> {
         let layout = store.layout();
         let VariantPart {
             variant_id_offset,
@@ -43,20 +64,26 @@ impl AllProperties {
             names,
         } = layout.variant_part.as_ref().unwrap();
         assert_eq!(variants.len(), 2);
-        let path_property = (&layout.common["path"], value_storage).try_into()?;
+        let path_property = prop_as_builder!(layout.common, "path", value_storage, "array");
         let variant_id_property = jbk::reader::builder::VariantIdProperty::new(*variant_id_offset);
-        let content_mimetype_property = (
-            &variants[names["content"] as usize]["mimetype"],
+        let content_mimetype_property = prop_as_builder!(
+            variants[names["content"] as usize],
+            "mimetype",
             value_storage,
-        )
-            .try_into()?;
-        let content_address_property =
-            (&variants[names["content"] as usize]["content"]).try_into()?;
-        let redirect_target_property = (
-            &variants[names["redirect"] as usize]["target"],
+            "array"
+        );
+        let content_address_property = prop_as_builder!(
+            variants[names["content"] as usize],
+            "content",
             value_storage,
-        )
-            .try_into()?;
+            "content"
+        );
+        let redirect_target_property = prop_as_builder!(
+            variants[names["redirect"] as usize],
+            "target",
+            value_storage,
+            "arry"
+        );
         Ok(Self {
             store,
             path_property,

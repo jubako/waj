@@ -140,17 +140,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bstr"
-version = "1.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a68f1f47cdf0ec8ee4b941b2eee2a80cb796db73118c0dd09ac63fbe405be22"
-dependencies = [
- "memchr",
- "regex-automata",
- "serde",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -556,11 +545,9 @@ dependencies = [
 
 [[package]]
 name = "jubako"
-version = "0.3.3"
-source = "git+https://github.com/jubako/jubako.git#41999616b48a78a2910ac5eff077bf454a3e6920"
+version = "0.4.0-dev"
 dependencies = [
  "blake3",
- "bstr",
  "clap",
  "crc",
  "deranged",
@@ -573,6 +560,7 @@ dependencies = [
  "rayon",
  "spmc",
  "tempfile",
+ "thiserror",
  "uuid",
  "zerocopy",
  "zstd",
@@ -592,7 +580,7 @@ checksum = "433bfe06b8c75da9b2e3fbea6e5329ff87748f0b144ef75306e674c3f6f7c13f"
 
 [[package]]
 name = "libwaj"
-version = "0.3.0"
+version = "0.4.0-dev"
 dependencies = [
  "ascii",
  "blake3",
@@ -606,6 +594,7 @@ dependencies = [
  "signal-hook",
  "static_assertions",
  "tempfile",
+ "thiserror",
  "tiny_http",
  "typenum",
  "walkdir",
@@ -926,6 +915,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "thiserror"
+version = "2.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26afc1baea8a989337eeb52b6e72a039780ce45c3edfcc9c5b9d112feeb173c2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "tiny_http"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1023,7 +1032,7 @@ dependencies = [
 
 [[package]]
 name = "waj"
-version = "0.3.0"
+version = "0.4.0-dev"
 dependencies = [
  "anyhow",
  "clap",

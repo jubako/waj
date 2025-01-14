@@ -125,7 +125,7 @@ mod tests {
             Cow::Borrowed(&self.0)
         }
 
-        fn kind(&self) -> jbk::Result<Option<EntryKind>> {
+        fn kind(&self) -> Result<Option<EntryKind>, CreatorError> {
             Ok(Some(EntryKind::Content(
                 jbk::ContentAddress::new(1.into(), 0.into()),
                 mime::APPLICATION_OCTET_STREAM,
@@ -134,8 +134,8 @@ mod tests {
     }
 
     #[test]
-    fn test_one_content() -> jbk::Result<()> {
-        let waj_file = tempfile::NamedTempFile::new_in(&std::env::temp_dir())?;
+    fn test_one_content() -> Result<(), Box<dyn std::error::Error>> {
+        let waj_file = tempfile::NamedTempFile::new_in(std::env::temp_dir())?;
         let (mut waj_file, waj_name) = waj_file.into_parts();
         let mut creator = jbk::creator::DirectoryPackCreator::new(
             jbk::PackId::from(0),
@@ -153,7 +153,8 @@ mod tests {
         let directory_pack =
             jbk::reader::DirectoryPack::new(jbk::creator::FileSource::open(waj_name)?.into())?;
         let index = directory_pack.get_index_from_name("waj_entries")?;
-        assert!(!index.is_empty());
+        assert!(index.is_some());
+        assert!(!index.unwrap().is_empty());
         Ok(())
     }
 }

@@ -1,3 +1,5 @@
+use crate::error::WajError;
+
 use super::common::*;
 use super::Waj;
 use jbk::reader::Range;
@@ -27,7 +29,7 @@ impl<'a, Context> Walker<'a, Context> {
         Self { waj, context }
     }
 
-    pub fn run<B>(&mut self, op: &dyn Operator<Context, B>) -> jbk::Result<()>
+    pub fn run<B>(&mut self, op: &dyn Operator<Context, B>) -> Result<(), WajError>
     where
         B: FullBuilderTrait,
     {
@@ -35,7 +37,7 @@ impl<'a, Context> Walker<'a, Context> {
 
         op.on_start(&mut self.context)?;
         self._run(&self.waj.root_index, &builder, op)?;
-        op.on_stop(&mut self.context)
+        Ok(op.on_stop(&mut self.context)?)
     }
 
     fn _run<R: Range, B>(
@@ -43,7 +45,7 @@ impl<'a, Context> Walker<'a, Context> {
         range: &R,
         builder: &RealBuilder<B>,
         op: &dyn Operator<Context, B>,
-    ) -> jbk::Result<()>
+    ) -> Result<(), WajError>
     where
         B: FullBuilderTrait,
     {

@@ -2,6 +2,7 @@ mod common;
 pub mod create;
 mod entry;
 //pub mod fs_adder;
+pub mod error;
 mod serve;
 mod waj;
 pub mod walk;

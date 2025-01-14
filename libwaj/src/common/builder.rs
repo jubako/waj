@@ -1,6 +1,7 @@
 use super::entry::*;
 use super::entry_type::EntryType;
 use super::AllProperties;
+use crate::error;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::ByteSlice;
 
@@ -90,19 +91,24 @@ where
     B: FullBuilderTrait,
 {
     type Entry = Entry<B::Entry>;
+    type Error = error::BaseError;
 
-    fn create_entry(&self, idx: jbk::EntryIdx) -> jbk::Result<Self::Entry> {
-        let reader = self.store.get_entry_reader(idx);
-        let entry_type = self.variant_id_property.create(&reader)?.try_into()?;
-        Ok(match entry_type {
-            EntryType::Content => {
-                let entry = self.builder.create_content(idx, &reader)?;
-                Entry::Content(entry)
-            }
-            EntryType::Redirect => {
-                let entry = self.builder.create_redirect(idx, &reader)?;
-                Entry::Redirect(entry)
-            }
-        })
+    fn create_entry(&self, idx: jbk::EntryIdx) -> Result<Option<Self::Entry>, Self::Error> {
+        self.store
+            .get_entry_reader(idx)
+            .map(|reader| {
+                let entry_type = self.variant_id_property.create(&reader)?.try_into()?;
+                Ok(match entry_type {
+                    EntryType::Content => {
+                        let entry = self.builder.create_content(idx, &reader)?;
+                        Entry::Content(entry)
+                    }
+                    EntryType::Redirect => {
+                        let entry = self.builder.create_redirect(idx, &reader)?;
+                        Entry::Redirect(entry)
+                    }
+                })
+            })
+            .transpose()
     }
 }
