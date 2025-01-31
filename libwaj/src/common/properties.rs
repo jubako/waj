@@ -1,55 +1,26 @@
-use crate::error::{BaseError, WajFormatError};
-use jbk::reader::VariantPart;
+use crate::{
+    common::EntryType,
+    error::{BaseError, WajFormatError},
+};
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum Property {
-    Path,
-    Mimetype,
-    Content,
-    Target,
-}
+use jbk::{layout_builder, properties};
 
-impl ToString for Property {
-    fn to_string(&self) -> String {
-        use Property::*;
-        String::from(match self {
-            Path => "path",
-            Mimetype => "mimetype",
-            Content => "content",
-            Target => "target",
-        })
+properties! {
+    Property {
+        Path:"array" => "path",
+        Mimetype:"array" => "mimetype",
+        Content:"content" => "content",
+        Target:"array" => "target"
     }
 }
-
-impl jbk::creator::PropertyName for Property {}
 
 pub struct AllProperties {
     pub store: jbk::reader::EntryStore,
     pub path_property: jbk::reader::builder::ArrayProperty,
-    pub variant_id_property: jbk::reader::builder::VariantIdProperty,
+    pub variant_id_property: jbk::reader::builder::VariantIdBuilder<EntryType>,
     pub content_mimetype_property: jbk::reader::builder::ArrayProperty,
     pub content_address_property: jbk::reader::builder::ContentProperty,
     pub redirect_target_property: jbk::reader::builder::ArrayProperty,
-}
-
-macro_rules! prop_as_builder {
-    ($container:expr, $key: literal, $value_storage: expr, $kind:literal) => {
-        $container
-            .get($key)
-            .ok_or(WajFormatError(concat!(
-                "Property `",
-                $key,
-                "` is not present."
-            )))?
-            .as_builder($value_storage)?
-            .ok_or(WajFormatError(concat!(
-                "Property `",
-                $key,
-                "` is not a ",
-                $kind,
-                " proerty."
-            )))?
-    };
 }
 
 impl AllProperties {
@@ -58,31 +29,29 @@ impl AllProperties {
         value_storage: &jbk::reader::ValueStorage,
     ) -> Result<Self, BaseError> {
         let layout = store.layout();
-        let VariantPart {
-            variant_id_offset,
-            variants,
-            names,
-        } = layout.variant_part.as_ref().unwrap();
-        assert_eq!(variants.len(), 2);
-        let path_property = prop_as_builder!(layout.common, "path", value_storage, "array");
-        let variant_id_property = jbk::reader::builder::VariantIdProperty::new(*variant_id_offset);
-        let content_mimetype_property = prop_as_builder!(
-            variants[names["content"] as usize],
-            "mimetype",
+        if layout.variant_len() != 2 {
+            return Err(WajFormatError("Layout must contain 3 variants").into());
+        }
+        let path_property = layout_builder!(
+            layout[common][Property::Path],
             value_storage,
-            "array"
+            WajFormatError
         );
-        let content_address_property = prop_as_builder!(
-            variants[names["content"] as usize],
-            "content",
+        let variant_id_property = layout.variant_id_builder().expect("We have variants");
+        let content_mimetype_property = layout_builder!(
+            layout[EntryType::Content][Property::Mimetype],
             value_storage,
-            "content"
+            WajFormatError
         );
-        let redirect_target_property = prop_as_builder!(
-            variants[names["redirect"] as usize],
-            "target",
+        let content_address_property = layout_builder!(
+            layout[EntryType::Content][Property::Content],
             value_storage,
-            "arry"
+            WajFormatError
+        );
+        let redirect_target_property = layout_builder!(
+            layout[EntryType::Redirect][Property::Target],
+            value_storage,
+            WajFormatError
         );
         Ok(Self {
             store,
