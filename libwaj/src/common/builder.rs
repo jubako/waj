@@ -1,7 +1,7 @@
 use super::entry::*;
 use super::entry_type::EntryType;
 use super::AllProperties;
-use crate::error;
+use crate::error::{self, WajFormatError};
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::ByteSlice;
 
@@ -68,7 +68,7 @@ where
 
 pub(crate) struct RealBuilder<B: FullBuilderTrait> {
     store: jbk::reader::EntryStore,
-    variant_id_property: jbk::reader::builder::VariantIdProperty,
+    variant_id_property: jbk::reader::builder::VariantIdBuilder<EntryType>,
     builder: B,
 }
 
@@ -80,7 +80,7 @@ where
         let builder = B::new(properties);
         Self {
             store: properties.store.clone(),
-            variant_id_property: properties.variant_id_property,
+            variant_id_property: properties.variant_id_property.clone(),
             builder,
         }
     }
@@ -97,15 +97,20 @@ where
         self.store
             .get_entry_reader(idx)
             .map(|reader| {
-                let entry_type = self.variant_id_property.create(&reader)?.try_into()?;
+                let entry_type = self.variant_id_property.create(&reader)?;
                 Ok(match entry_type {
-                    EntryType::Content => {
+                    Some(EntryType::Content) => {
                         let entry = self.builder.create_content(idx, &reader)?;
                         Entry::Content(entry)
                     }
-                    EntryType::Redirect => {
+                    Some(EntryType::Redirect) => {
                         let entry = self.builder.create_redirect(idx, &reader)?;
                         Entry::Redirect(entry)
+                    }
+                    None => {
+                        return Err(error::BaseError::WajFormatError(WajFormatError(
+                            "Unknow variant",
+                        )))
                     }
                 })
             })
