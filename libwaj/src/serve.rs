@@ -170,10 +170,10 @@ impl RequestHandler {
                 let (msg, mimetype, status_code) = match mimetype {
                     "text/html" | "text/css" | "application/javascript" => {
                         let msg = format!(
-                                            "<h1>Missing contentPack {}.</h1><p>Declared location is <pre>{}</pre></p><p>Found the pack and you are good !!</p>",
-                                            pack_info.uuid,
-                                            String::from_utf8_lossy(&pack_info.pack_location),
-                                        );
+                            "<h1>Missing contentPack {}.</h1><p>Declared location is <pre>{}</pre></p><p>Found the pack and you are good !!</p>",
+                            pack_info.uuid,
+                            pack_info.pack_location,
+                        );
                         (msg, "text/html", 503)
                     }
                     _ => {

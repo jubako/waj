@@ -8,7 +8,7 @@ fn test_empty() {
         Path::new(env!("CARGO_TARGET_TMPDIR")).join("test_empty.waj"),
     );
     let creator = libwaj::create::FsCreator::new(
-        &waj_file,
+        waj_file.to_str().unwrap(),
         Box::new(libwaj::create::StripPrefix::new("".into())),
         jbk::creator::ConcatMode::OneFile,
         Arc::new(()),
@@ -16,5 +16,5 @@ fn test_empty() {
         Default::default(),
     )
     .unwrap();
-    assert!(creator.finalize(&waj_file).is_ok());
+    assert!(creator.finalize().is_ok());
 }
