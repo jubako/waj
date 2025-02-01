@@ -34,7 +34,7 @@ fn url_variants(url: &str) -> Vec<Cow<str>> {
 
 struct ContentEntry {
     pub content_address: jbk::reader::ContentAddress,
-    pub mimetype: Vec<u8>,
+    pub mimetype: jbk::SmallBytes,
 }
 
 struct ContentBuilder {
@@ -70,7 +70,7 @@ struct RedirectBuilder {
 }
 
 impl Builder for RedirectBuilder {
-    type Entry = Vec<u8>;
+    type Entry = jbk::SmallBytes;
 
     fn new(properties: &AllProperties) -> Self {
         Self {
@@ -80,7 +80,7 @@ impl Builder for RedirectBuilder {
 
     fn create_entry(&self, _idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
         let target_prop = self.target_property.create(reader)?;
-        let mut target = vec![];
+        let mut target = jbk::SmallBytes::new();
         target_prop.resolve_to_vec(&mut target)?;
         Ok(target)
     }

@@ -33,7 +33,7 @@ struct PathBuilder {
 }
 
 impl Builder for PathBuilder {
-    type Entry = Vec<u8>;
+    type Entry = jbk::SmallBytes;
 
     fn new(properties: &AllProperties) -> Self {
         Self {
@@ -43,7 +43,7 @@ impl Builder for PathBuilder {
 
     fn create_entry(&self, _idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
         let path_prop = self.path_property.create(reader)?;
-        let mut path = vec![];
+        let mut path = jbk::SmallBytes::new();
         path_prop.resolve_to_vec(&mut path)?;
         Ok(path)
     }
