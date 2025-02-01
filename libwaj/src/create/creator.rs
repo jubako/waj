@@ -31,8 +31,8 @@ pub struct FsCreator {
 }
 
 impl FsCreator {
-    pub fn new<P: AsRef<Path>>(
-        outfile: P,
+    pub fn new(
+        outfile: impl AsRef<jbk::Utf8Path>,
         namer: Box<dyn Namer>,
         concat_mode: ConcatMode,
         progress: Arc<dyn jbk::creator::Progress>,
@@ -58,12 +58,11 @@ impl FsCreator {
         })
     }
 
-    pub fn finalize(self, outfile: &Path) -> Void {
-        Ok(self.cached_content_creator.into_inner().finalize(
-            outfile,
-            self.entry_store_creator,
-            vec![],
-        )?)
+    pub fn finalize(self) -> Void {
+        Ok(self
+            .cached_content_creator
+            .into_inner()
+            .finalize(self.entry_store_creator, vec![])?)
     }
 
     pub fn add_from_path(&mut self, path: &Path) -> Void {

@@ -3,7 +3,7 @@ use clap::{Parser, ValueHint};
 use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
+use std::path::{absolute, Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use waj::create::StripPrefix;
@@ -21,7 +21,7 @@ pub struct Options {
         required_unless_present("list_compressions"),
         value_hint=ValueHint::FilePath,
     )]
-    outfile: Option<PathBuf>,
+    outfile: Option<jbk::Utf8PathBuf>,
 
     /// Remove STRIP_PREFIX from the entries' name added to the archive.
     #[arg(long, required = false, value_hint=ValueHint::DirPath)]
@@ -71,6 +71,7 @@ pub struct Options {
 }
 
 fn check_output_path_writable(out_file: &Path, force: bool) -> Result<()> {
+    let out_file = absolute(out_file)?;
     if !out_file.parent().unwrap().is_dir() {
         Err(anyhow!(
             "Directory {} doesn't exist",
@@ -166,8 +167,7 @@ pub fn create(options: Options) -> Result<()> {
     let out_file = options.outfile.as_ref().expect(
         "Clap unsure it is Some, except if we have list_compressions, and so we return early",
     );
-    let out_file = std::env::current_dir()?.join(out_file);
-    check_output_path_writable(&out_file, options.force)?;
+    check_output_path_writable(out_file.as_std_path(), options.force)?;
 
     let file_list = options
         .file_list
@@ -184,7 +184,7 @@ pub fn create(options: Options) -> Result<()> {
 
     let namer = Box::new(StripPrefix::new(strip_prefix));
     let mut creator = waj::create::FsCreator::new(
-        &out_file,
+        out_file,
         namer,
         match options.concat_mode {
             None => jbk::creator::ConcatMode::OneFile,
@@ -224,6 +224,6 @@ pub fn create(options: Options) -> Result<()> {
         creator.add_redirect("", &main_page)?;
     }
 
-    let ret = creator.finalize(&out_file);
+    let ret = creator.finalize();
     Ok(ret?)
 }
