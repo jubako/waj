@@ -67,7 +67,7 @@ impl EntryStoreCreator {
         //println!("{:?}", entry.name());
         let entry = match entry_kind {
             EntryKind::Content(content_address, mimetype) => {
-                let mime_id = self.mime_store.add_value(mimetype.to_string().into());
+                let mime_id = self.mime_store.add_value(mimetype.as_ref().as_bytes());
                 Entry::new_content(path, mime_id, content_address)
             }
             EntryKind::Redirect(target) => {

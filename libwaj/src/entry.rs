@@ -4,7 +4,7 @@ use jbk::reader::ByteSlice;
 
 pub struct CommonPart {
     idx: jbk::EntryIdx,
-    path: Vec<u8>,
+    path: jbk::SmallBytes,
 }
 
 pub trait CommonEntry {
@@ -12,14 +12,14 @@ pub trait CommonEntry {
     fn idx(&self) -> jbk::EntryIdx {
         self.common().idx
     }
-    fn path(&self) -> &Vec<u8> {
+    fn path(&self) -> &[u8] {
         &self.common().path
     }
 }
 
 pub struct Content {
     common: CommonPart,
-    mimetype: Vec<u8>,
+    mimetype: jbk::SmallBytes,
     content: jbk::ContentAddress,
 }
 
@@ -34,14 +34,14 @@ impl Content {
         self.content
     }
 
-    pub fn mimetype(&self) -> &Vec<u8> {
+    pub fn mimetype(&self) -> &[u8] {
         &self.mimetype
     }
 }
 
 pub struct Redirect {
     common: CommonPart,
-    target: Vec<u8>,
+    target: jbk::SmallBytes,
 }
 
 impl CommonEntry for Redirect {
@@ -51,7 +51,7 @@ impl CommonEntry for Redirect {
 }
 
 impl Redirect {
-    pub fn target(&self) -> &Vec<u8> {
+    pub fn target(&self) -> &[u8] {
         &self.target
     }
 }
@@ -71,7 +71,7 @@ mod private {
 
         fn create_entry(&self, idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<CommonPart> {
             let path_prop = self.path_property.create(reader)?;
-            let mut path = vec![];
+            let mut path = jbk::SmallBytes::new();
             path_prop.resolve_to_vec(&mut path)?;
             Ok(CommonPart { idx, path })
         }
@@ -96,7 +96,7 @@ mod private {
 
         fn create_entry(&self, idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
             let mimetype_prop = self.mimetype_property.create(reader)?;
-            let mut mimetype = vec![];
+            let mut mimetype = jbk::SmallBytes::new();
             mimetype_prop.resolve_to_vec(&mut mimetype)?;
             Ok(Content {
                 common: self.common.create_entry(idx, reader)?,
@@ -124,7 +124,7 @@ mod private {
         fn create_entry(&self, idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
             let common = self.common.create_entry(idx, reader)?;
             let target_prop = self.link_property.create(reader)?;
-            let mut target = vec![];
+            let mut target = jbk::SmallBytes::new();
             target_prop.resolve_to_vec(&mut target)?;
             Ok(Redirect { common, target })
         }
