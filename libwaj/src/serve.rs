@@ -240,7 +240,7 @@ impl RequestHandler {
                     }
                     Entry::Redirect(r) => {
                         let mut response = Response::empty(StatusCode(302));
-                        let location = format!("/{}", percent_encode(&r, CONTROLS));
+                        let location = format!("{}", percent_encode(&r, CONTROLS));
                         response.add_header(Header {
                             field: "Location".parse().unwrap(),
                             value: location.parse().unwrap(),
