@@ -25,12 +25,12 @@ impl waj::walk::Operator<(), waj::FullBuilder> for Lister {
     }
     fn on_content(&self, _context: &mut (), entry: &waj::Content) -> jbk::Result<()> {
         let path = String::from_utf8_lossy(entry.path());
-        println!("{:?}", path);
+        println!("{}", path);
         Ok(())
     }
     fn on_redirect(&self, _context: &mut (), entry: &waj::Redirect) -> jbk::Result<()> {
         let path = String::from_utf8_lossy(entry.path());
-        println!("{:?}", path);
+        println!("{}", path);
         Ok(())
     }
 }

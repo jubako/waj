@@ -4,7 +4,6 @@ mod serve;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
-use log::error;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -96,7 +95,6 @@ fn configure_log(verbose: u8) {
 fn run() -> Result<()> {
     let args = Cli::parse();
     configure_log(args.verbose);
-    human_panic::setup_panic!();
 
     if let Some(what) = args.generate_man_page {
         let command = match what.as_str() {
@@ -129,10 +127,21 @@ fn run() -> Result<()> {
 }
 
 fn main() -> ExitCode {
+    human_panic::setup_panic!(human_panic::Metadata::new(
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    )
+    .homepage(env!("CARGO_PKG_HOMEPAGE")));
+
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            error!("Error : {e:#}");
+            eprintln!("Error : {e:#}");
             ExitCode::FAILURE
         }
     }
