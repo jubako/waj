@@ -116,6 +116,16 @@ macro_rules! temp_tree {
         temp_tree!(@instr, $path, $rng, $context, $($left)*)
     };
 
+    // Handle custom file instruction
+    (@instr, $path:expr, $rng:ident, $context:tt, custom $sub_path:tt $what:tt ) => {
+        temp_tree!(@custom, $path, $rng, $context, $sub_path, $what);
+    };
+
+    (@instr, $path:expr, $rng:ident, $context:tt, custom $sub_path:tt $what:tt, $($left:tt)* ) => {
+        temp_tree!(@custom, $path, $rng, $context, $sub_path, $what);
+        temp_tree!(@instr, $path, $rng, $context, $($left)*)
+    };
+
     // Handle symlink instruction
     (@instr, $path:expr, $rng:ident, $context:tt, link $sub_path:tt -> $what:tt ) => {
         temp_tree!(@link, $path, $rng, $context, $sub_path, $what);
@@ -184,6 +194,12 @@ macro_rules! temp_tree {
         let data = BinRead(&mut $rng);
         let mut file = std::fs::File::create($path.join(&temp_tree!(@ctx, $sub_path, $context)))?;
         std::io::copy(&mut data.take(len), &mut file)?;
+    };
+
+    // Custom file content
+    (@custom, $path:expr, $_rng:ident, $context:tt, $sub_path:tt, $content:expr) => {
+        let mut file = std::fs::File::create($path.join(&temp_tree!(@ctx, $sub_path, $context)))?;
+        std::io::copy(&mut std::io::Cursor::new($content), &mut file)?;
     };
 
     // Symlink to file
@@ -287,21 +303,21 @@ macro_rules! cmd {
 
 #[macro_export]
 macro_rules! run {
-    (status, $prog:tt, $($args:expr),+) => {
+    (status, $prog:tt, $($args:expr),*) => {
         {
-            let mut command = cmd!($prog, $($args),+);
+            let mut command = cmd!($prog, $($args),*);
             command.status()?
         }
     };
-    (output, $prog:tt, $($args:expr),+) => {
+    (output, $prog:tt, $($args:expr),*) => {
         {
-            let mut command = cmd!($prog, $($args),+);
+            let mut command = cmd!($prog, $($args),*);
             command.output()?
         }
     };
-    (spawn, $prog:tt, $($args:expr),+) => {
+    (spawn, $prog:tt, $($args:expr),*) => {
         {
-            let mut command = cmd!($prog, $($args),+);
+            let mut command = cmd!($prog, $($args),*);
             command.spawn()?
         }
     };
