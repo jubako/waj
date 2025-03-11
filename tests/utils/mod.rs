@@ -1,4 +1,5 @@
 mod diff;
+use std::path::PathBuf;
 use std::{io::Read, path::Path, process::Command, sync::LazyLock};
 
 use rand::prelude::*;
@@ -400,5 +401,41 @@ macro_rules! join {
     (@append, $path:ident, $args:expr, $($left:expr),+) => {
         $path.push($args);
         join!(@append, $path, $($left),+)
+    };
+}
+
+pub struct TmpWaj {
+    _tmp: tempfile::TempDir,
+    path: PathBuf,
+}
+
+impl TmpWaj {
+    pub fn new(tmp_dir: tempfile::TempDir, path: PathBuf) -> Self {
+        Self {
+            _tmp: tmp_dir,
+            path,
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+#[macro_export]
+macro_rules! tear_down {
+    ($name:ident, $function:expr) => {
+        struct $name<F>(Option<F>)
+        where
+            F: FnOnce();
+        impl<F> Drop for $name<F>
+        where
+            F: FnOnce(),
+        {
+            fn drop(&mut self) {
+                self.0.take().unwrap()()
+            }
+        }
+        let _tear_down = $name(Some($function));
     };
 }

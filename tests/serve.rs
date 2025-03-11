@@ -1,28 +1,7 @@
 mod utils;
 
-use std::{
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
+use std::{path::Path, sync::LazyLock};
 use utils::*;
-
-pub struct TmpWaj {
-    _tmp: tempfile::TempDir,
-    path: PathBuf,
-}
-
-impl TmpWaj {
-    pub(self) fn new(tmp_dir: tempfile::TempDir, path: PathBuf) -> Self {
-        Self {
-            _tmp: tmp_dir,
-            path,
-        }
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-}
 
 pub static BASE_WAJ_FILE: LazyLock<TmpWaj> = LazyLock::new(|| {
     let source_dir = SHARED_TEST_DIR.path();
@@ -43,24 +22,6 @@ pub static BASE_WAJ_FILE: LazyLock<TmpWaj> = LazyLock::new(|| {
     .check_output(Some(b""), Some(b""));
     TmpWaj::new(tmp_waj_dir, tmp_waj)
 });
-
-#[cfg(test)]
-macro_rules! tear_down {
-    ($name:ident, $function:expr) => {
-        struct $name<F>(Option<F>)
-        where
-            F: FnOnce();
-        impl<F> Drop for $name<F>
-        where
-            F: FnOnce(),
-        {
-            fn drop(&mut self) {
-                self.0.take().unwrap()()
-            }
-        }
-        let _tear_down = $name(Some($function));
-    };
-}
 
 #[test]
 fn test_serve() -> Result {
