@@ -32,12 +32,13 @@ fn test_serve() -> Result {
     let mut command = cmd!("waj", "serve", &waj_file, &addr);
 
     let mut child = command.spawn()?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
     tear_down!(CloseServer, || {
         child.kill().unwrap();
     });
 
-    assert!(server_diff("localhost:5050", tmp_source_dir,)?);
+    assert!(server_diff(addr, tmp_source_dir,)?);
     Ok(())
 }
 

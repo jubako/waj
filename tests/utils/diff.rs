@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use core::{convert::From, unreachable};
+use core::{convert::From, time::Duration, unreachable};
 use std::{
     cmp::Ordering,
     ffi::OsStr,
@@ -143,6 +143,7 @@ impl Client {
             base_url: String::from("http://") + &base_url + "/",
             client: reqwest::blocking::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
+                .timeout(Duration::from_secs(3))
                 .build()
                 .unwrap(),
         }
@@ -159,7 +160,19 @@ impl ContainEqual for Client {
         let p = abs_p.strip_prefix(root).unwrap();
 
         let url = self.base_url.clone() + p.to_str().unwrap();
-        let resp = self.client.get(&url).send().unwrap();
+        let mut retry = 3;
+        let mut resp = self.client.get(&url).send();
+        while retry != 0 && resp.is_err() {
+            retry -= 1;
+            resp = self.client.get(&url).send();
+        }
+        let resp = match resp {
+            Ok(resp) => resp,
+            Err(e) => {
+                println!("Failed to get {}: {}", url, e);
+                return false;
+            }
+        };
         if is_redirect && resp.status().is_redirection() {
             if let Some(location) = resp.headers().get(reqwest::header::LOCATION) {
                 let target = read_link(abs_p).expect("Read_link should succeed");
@@ -176,7 +189,12 @@ impl ContainEqual for Client {
         } else if !is_redirect && resp.status().is_success() {
             let file_content: ReadAsIter<_> =
                 File::open(abs_p).expect("Open should succeed").into();
-            file_content.cmp(resp.bytes().unwrap()) == Ordering::Equal
+            if file_content.cmp(resp.bytes().unwrap()) == Ordering::Equal {
+                true
+            } else {
+                println!("Content is not equal {}", p.display());
+                false
+            }
         } else {
             println!("No path {} ({}): {:?}", p.display(), url, resp);
             false
@@ -191,18 +209,20 @@ pub fn server_diff(url: &str, root: impl AsRef<Path>) -> std::io::Result<bool> {
 }
 
 pub fn diff_entry(
-    tested_content: &impl ContainEqual,
+    tested_content: &(impl ContainEqual + Sync),
     reference: TreeEntry,
     root: &Path,
 ) -> std::io::Result<bool> {
+    use rayon::prelude::*;
     if let TreeEntry::Dir(path) = reference {
-        for child in EntryIterator::new(&path) {
-            if !diff_entry(tested_content, child, root)? {
-                return Ok(false);
-            }
-        }
+        EntryIterator::new(&path)
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .map(|child| diff_entry(tested_content, child, root).unwrap())
+            .all(|ok| ok);
     } else {
         if !tested_content.contains(&reference, root) {
+            println!("{:?} not found", reference);
             return Ok(false);
         }
     }
