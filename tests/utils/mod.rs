@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod diff;
 use std::path::PathBuf;
 use std::{io::Read, path::Path, process::Command, sync::LazyLock};
@@ -76,6 +77,7 @@ macro_rules! temp_tree {
         {
             let temp_path =
             tempfile::TempDir::with_prefix_in("source_", env!("CARGO_TARGET_TMPDIR"))?;
+            #[allow(unused_variables, unused_mut)]
             let mut rng = <rand::rngs::SmallRng as rand::SeedableRng>::seed_from_u64($seed);
             temp_tree!(@instr, temp_path.path(), rng, [], $($what)*);
             temp_path
