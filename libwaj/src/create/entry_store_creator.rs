@@ -104,9 +104,10 @@ mod tests {
     use super::*;
     use jbk::creator::EntryStoreTrait;
     use mime_guess::mime;
+    use rustest::{test, Result};
 
     #[test]
-    fn test_empty() -> jbk::Result<()> {
+    fn test_empty() -> Result {
         let mut creator = jbk::creator::DirectoryPackCreator::new(
             jbk::PackId::from(0),
             crate::VENDOR_ID,
@@ -125,7 +126,7 @@ mod tests {
             Cow::Borrowed(&self.0)
         }
 
-        fn kind(&self) -> Result<Option<EntryKind>, CreatorError> {
+        fn kind(&self) -> std::result::Result<Option<EntryKind>, CreatorError> {
             Ok(Some(EntryKind::Content(
                 jbk::ContentAddress::new(1.into(), 0.into()),
                 mime::APPLICATION_OCTET_STREAM,
@@ -134,9 +135,8 @@ mod tests {
     }
 
     #[test]
-    fn test_one_content() -> Result<(), Box<dyn std::error::Error>> {
-        let waj_file = tempfile::NamedTempFile::new_in(std::env::temp_dir())?;
-        let (mut waj_file, waj_name) = waj_file.into_parts();
+    fn test_one_content(waj_file: rustest_fixtures::TempFile) -> Result {
+        let waj_name = waj_file.path();
         let mut creator = jbk::creator::DirectoryPackCreator::new(
             jbk::PackId::from(0),
             crate::VENDOR_ID,
@@ -147,7 +147,10 @@ mod tests {
         let entry = SimpleEntry("foo.txt".into());
         entry_store_creator.add_entry(&entry)?;
         entry_store_creator.finalize(&mut creator);
-        creator.finalize()?.write(&mut waj_file)?;
+        {
+            let mut waj_file = waj_file.reopen()?;
+            creator.finalize()?.write(&mut waj_file)?;
+        }
         assert!(waj_name.is_file());
 
         let directory_pack =

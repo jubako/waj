@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 mod diff;
 use std::path::PathBuf;
-use std::{io::Read, path::Path, process::Command, sync::LazyLock};
+use std::{io::Read, path::Path, process::Command};
 
 use rand::prelude::*;
-pub type Result = anyhow::Result<()>;
 
 #[allow(unused_imports)]
 pub use diff::{list_diff, server_diff, TreeEntry};
+use rustest::fixture;
 
 #[cfg(unix)]
 pub fn symlink<P: AsRef<Path>, Q: AsRef<Path>>(path: P, target: Q) -> std::io::Result<()> {
@@ -254,32 +254,39 @@ macro_rules! temp_tree {
     };
 }
 
-pub static SHARED_TEST_DIR: LazyLock<tempfile::TempDir> = LazyLock::new(|| {
-    (|| -> std::io::Result<tempfile::TempDir> {
-        Ok(temp_tree!(1, {
-            dir "sub_dir_a" {
-                text "existing_file" 50,
-                link "existing_link" -> "existing_file",
-                text "file_2.txt" (500..1000),
-                loop  (10..50) { text "file{ctx}.txt" (500..1000) },
-                loop  (10..50) { bin "file{ctx}.bin" (500..1000) }
-            },
-            dir "sub_dir_b" {
-                loop 10 { bin "file{ctx}.bin" (5000..10000) },
-                loop 10 { link "link_to_file{ctx}" -> "file{ctx}.bin" },
-            },
-            link_dir "sub_dir_link" -> "sub_dir_b",
-            dir "empty_sub_dir" {},
-            loop dir_ctx=(1..5) {
-                dir "gen_sub_dir_{dir_ctx}" {
-                    loop (1..10) { text "gen_sub_file_{dir_ctx}_{ctx}" (500..1000)},
-                    loop (1..2) { dir "gen_sub_empty_dir_{ctx}{dir_ctx:0}" {} }
-                }
+#[derive(Debug)]
+pub struct TempDir(tempfile::TempDir);
+
+impl TempDir {
+    pub fn path(&self) -> &Path {
+        self.0.path()
+    }
+}
+
+#[fixture(scope=global)]
+pub fn SharedTestDir() -> std::io::Result<TempDir> {
+    Ok(TempDir(temp_tree!(1, {
+        dir "sub_dir_a" {
+            text "existing_file" 50,
+            link "existing_link" -> "existing_file",
+            text "file_2.txt" (500..1000),
+            loop  (10..50) { text "file{ctx}.txt" (500..1000) },
+            loop  (10..50) { bin "file{ctx}.bin" (500..1000) }
+        },
+        dir "sub_dir_b" {
+            loop 10 { bin "file{ctx}.bin" (5000..10000) },
+            loop 10 { link "link_to_file{ctx}" -> "file{ctx}.bin" },
+        },
+        link_dir "sub_dir_link" -> "sub_dir_b",
+        dir "empty_sub_dir" {},
+        loop dir_ctx=(1..5) {
+            dir "gen_sub_dir_{dir_ctx}" {
+                loop (1..10) { text "gen_sub_file_{dir_ctx}_{ctx}" (500..1000)},
+                loop (1..2) { dir "gen_sub_empty_dir_{ctx}{dir_ctx:0}" {} }
             }
-        }))
-    })()
-    .expect("Error creating the directory tree")
-});
+        }
+    })))
+}
 
 #[macro_export]
 macro_rules! cmd {
@@ -346,7 +353,6 @@ pub trait CheckCommand {
 
 impl CheckCommand for Command {
     fn check_output(&mut self, stdout: Option<&[u8]>, stderr: Option<&[u8]>) {
-        println!("Running command {self:?}");
         let output = self.output().expect("Running command should work.");
         let mut success = output.status.success();
         if let Some(stdout) = stdout {
@@ -372,12 +378,9 @@ impl CheckCommand for Command {
                 );
             }
             panic!("Running command {self:?} fails.")
-        } else {
-            println!("Command run succeed.");
         }
     }
     fn check_fail(&mut self, stdout: &[u8], stderr: &[u8]) {
-        println!("Running command {self:?}");
         let output = self.output().expect("Running command should work.");
         assert_eq!(
             output.stdout,

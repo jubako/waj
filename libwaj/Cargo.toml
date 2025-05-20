@@ -8,6 +8,9 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[lib]
+harness = false
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -28,3 +31,7 @@ ascii = "1.1.0"
 signal-hook = "0.3.17"
 thiserror = "2.0.9"
 http-range-header = "0.4.2"
+
+[dev-dependencies]
+rustest = { version = "0.2.0" }
+rustest-fixtures = { version = "0.2.0" }
