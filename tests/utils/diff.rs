@@ -218,16 +218,17 @@ pub fn diff_entry(
 ) -> std::io::Result<bool> {
     use rayon::prelude::*;
     if let TreeEntry::Dir(path) = reference {
-        EntryIterator::new(&path)
+        Ok(EntryIterator::new(&path)
             .collect::<Vec<_>>()
             .into_par_iter()
             .map(|child| diff_entry(tested_content, child, root).unwrap())
-            .all(|ok| ok);
+            .all(|ok| ok))
     } else {
         if !tested_content.contains(&reference, root) {
             println!("{:?} not found", reference);
-            return Ok(false);
+            Ok(false)
+        } else {
+            Ok(true)
         }
     }
-    Ok(true)
 }
