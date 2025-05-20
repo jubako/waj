@@ -1,7 +1,6 @@
 mod utils;
 
-use reqwest::blocking::Client;
-use reqwest::header::{ACCEPT_RANGES, RANGE};
+use ureq::http::header::{ACCEPT_RANGES, RANGE};
 
 use core::ops::{Deref, Drop};
 use std::path::Path;
@@ -82,8 +81,7 @@ mod inner {
 
 #[test]
 fn test_byte_range_support(_server: inner::Server, url: RefUrl) -> rustest::Result {
-    let client = Client::new();
-    let response = client.head(url.deref()).send()?;
+    let response = ureq::head(url.deref()).call()?;
     assert!(
         response.headers().contains_key(ACCEPT_RANGES),
         "Server does not support byte ranges"
@@ -93,24 +91,18 @@ fn test_byte_range_support(_server: inner::Server, url: RefUrl) -> rustest::Resu
 
 #[test]
 fn test_specific_byte_range(server: inner::Server) -> rustest::Result {
-    let client = Client::new();
     let full_content: Vec<u8> = (0..=255).collect();
     let range = "bytes=0-99";
-    let response = client
-        .get(server.url("ref"))
-        .header(RANGE, range)
-        .send()
-        .unwrap();
+    let mut response = ureq::get(server.url("ref")).header(RANGE, range).call()?;
 
     assert_eq!(
         response.status(),
         206,
         "Expected status code 206 for partial content"
     );
-    let bytes = response.bytes().unwrap();
     let expected_content = &full_content[0..=99];
     assert_eq!(
-        &bytes[..],
+        response.body_mut().read_to_vec()?,
         expected_content,
         "Content does not match the requested range"
     );
@@ -119,13 +111,13 @@ fn test_specific_byte_range(server: inner::Server) -> rustest::Result {
 
 #[test]
 fn test_exceeding_byte_range(server: inner::Server) -> rustest::Result {
-    let client = Client::new();
     let range = "bytes=1000-2000";
-    let response = client
-        .get(server.url("ref"))
+    let response = ureq::get(server.url("ref"))
         .header(RANGE, range)
-        .send()
-        .unwrap();
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .call()?;
 
     assert_eq!(response.status(), 416, "Expected status code is 416");
     Ok(())
@@ -133,13 +125,13 @@ fn test_exceeding_byte_range(server: inner::Server) -> rustest::Result {
 
 #[test]
 fn test_multiple_byte_ranges(server: inner::Server) -> rustest::Result {
-    let client = Client::new();
     let range = "bytes=0-49,51-99";
-    let response = client
-        .get(server.url("ref"))
+    let response = ureq::get(server.url("ref"))
         .header(RANGE, range)
-        .send()
-        .unwrap();
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .call()?;
 
     // Current version of the server do not handle multipart response,
     // which is necessary to respond to multiple byte_ranges.
@@ -152,17 +144,17 @@ fn test_multiple_byte_ranges(server: inner::Server) -> rustest::Result {
 
 #[test]
 fn test_overlapping_byte_ranges(server: inner::Server) -> rustest::Result {
-    let client = Client::new();
     // Current version of the server do not handle multipart response,
     // which is necessary to respond to multiple byte_ranges.
     // So we expect a 416, even if a server fully implementing the spec would return
     // a 206.
     let range = "bytes=0-49,40-99";
-    let response = client
-        .get(server.url("ref"))
+    let response = ureq::get(server.url("ref"))
         .header(RANGE, range)
-        .send()
-        .unwrap();
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .call()?;
 
     assert_eq!(
         response.status(),
@@ -174,13 +166,13 @@ fn test_overlapping_byte_ranges(server: inner::Server) -> rustest::Result {
 
 #[test]
 fn test_reverse_byte_range(server: inner::Server) -> rustest::Result {
-    let client = Client::new();
     let range = "bytes=99-0";
-    let response = client
-        .get(server.url("ref"))
+    let response = ureq::get(server.url("ref"))
         .header(RANGE, range)
-        .send()
-        .unwrap();
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .call()?;
 
     assert_eq!(
         response.status(),
@@ -192,24 +184,18 @@ fn test_reverse_byte_range(server: inner::Server) -> rustest::Result {
 
 #[test]
 fn test_suffix_byte_range(server: inner::Server) -> rustest::Result {
-    let client = Client::new();
     let full_content: Vec<u8> = (0..=255).collect();
     let range = "bytes=-100";
-    let response = client
-        .get(server.url("ref"))
-        .header(RANGE, range)
-        .send()
-        .unwrap();
+    let mut response = ureq::get(server.url("ref")).header(RANGE, range).call()?;
 
     assert_eq!(
         response.status(),
         206,
         "Expected status code 206 for partial content"
     );
-    let bytes = response.bytes().unwrap();
     let expected_content = &full_content[full_content.len() - 100..];
     assert_eq!(
-        &bytes[..],
+        response.body_mut().read_to_vec()?,
         expected_content,
         "Content does not match the requested suffix range"
     );

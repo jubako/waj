@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use core::{convert::From, time::Duration, unreachable};
 use std::{
     cmp::Ordering,
     ffi::OsStr,
@@ -9,7 +8,6 @@ use std::{
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
-
 struct ReadAsIter<R: Read>(BufReader<R>);
 
 impl<R: Read> Iterator for ReadAsIter<R> {
@@ -134,19 +132,29 @@ pub fn list_diff(tested: &[u8], root: impl AsRef<Path>) -> std::io::Result<bool>
 
 struct Client {
     base_url: String,
-    client: reqwest::blocking::Client,
+    client: ureq::Agent,
 }
 
 impl Client {
     fn new(base_url: String) -> Self {
         Self {
             base_url: String::from("http://") + &base_url + "/",
-            client: reqwest::blocking::Client::builder()
-                .redirect(reqwest::redirect::Policy::none())
-                .timeout(Duration::from_secs(3))
+            client: ureq::Agent::config_builder()
+                .max_redirects(0)
+                .max_redirects_will_error(false)
                 .build()
-                .unwrap(),
+                .into(),
         }
+    }
+
+    fn get(&self, url: &str) -> Result<ureq::http::Response<ureq::Body>, ureq::Error> {
+        let mut retry = 3;
+        let mut resp = self.client.get(url).call();
+        while retry != 0 && resp.is_err() {
+            retry -= 1;
+            resp = self.client.get(url).call();
+        }
+        resp
     }
 }
 
@@ -158,15 +166,10 @@ impl ContainEqual for Client {
             TreeEntry::Dir(_) => unreachable!(),
         };
         let p = abs_p.strip_prefix(root).unwrap();
-
         let url = self.base_url.clone() + p.to_str().unwrap();
-        let mut retry = 3;
-        let mut resp = self.client.get(&url).send();
-        while retry != 0 && resp.is_err() {
-            retry -= 1;
-            resp = self.client.get(&url).send();
-        }
-        let resp = match resp {
+        let resp = self.get(&url);
+
+        let mut resp = match resp {
             Ok(resp) => resp,
             Err(e) => {
                 println!("Failed to get {}: {}", url, e);
@@ -174,7 +177,7 @@ impl ContainEqual for Client {
             }
         };
         if is_redirect && resp.status().is_redirection() {
-            if let Some(location) = resp.headers().get(reqwest::header::LOCATION) {
+            if let Some(location) = resp.headers().get(ureq::http::header::LOCATION) {
                 let target = read_link(abs_p).expect("Read_link should succeed");
                 let target = target.to_str().unwrap();
                 if location.to_str().unwrap().cmp(target) == Ordering::Equal {
@@ -189,7 +192,7 @@ impl ContainEqual for Client {
         } else if !is_redirect && resp.status().is_success() {
             let file_content: ReadAsIter<_> =
                 File::open(abs_p).expect("Open should succeed").into();
-            if file_content.cmp(resp.bytes().unwrap()) == Ordering::Equal {
+            if file_content.cmp(resp.body_mut().read_to_vec().unwrap()) == Ordering::Equal {
                 true
             } else {
                 println!("Content is not equal {}", p.display());
