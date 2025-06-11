@@ -1068,9 +1068,9 @@ checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
 
 [[package]]
 name = "rustest"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc5c76cae9d95bafdb4cd54dca890e8de52aaa3976bae85104075b4f7b0f9da9"
+checksum = "b53a080a526dfa2fb76249d29347b3550379f416f149cb7dbcfbbc08abfc54f1"
 dependencies = [
  "ctor",
  "libtest-mimic",
@@ -1079,9 +1079,9 @@ dependencies = [
 
 [[package]]
 name = "rustest-fixtures"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9264f87c8431b7b51b1ed1c13700dedc38b3af2e5d772f032b56b2b1a0d0a1d2"
+checksum = "51b1b97d1bdc153caeb84e0b16d44e7e1becff5bfc9a8b77a40c6970f7e7a8c2"
 dependencies = [
  "rustest",
  "tempfile",
@@ -1089,9 +1089,9 @@ dependencies = [
 
 [[package]]
 name = "rustest-macro"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0286783fb6b8813cb19e88e15df620f27f55184bc1d1e9eaf5d6a2deecdfbbb"
+checksum = "a82be781069eaf509640d1cb7d8ddf2195b0bd41737ffacd42e6489d16adcdfe"
 dependencies = [
  "proc-macro2",
  "quote",
