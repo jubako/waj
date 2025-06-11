@@ -5,7 +5,6 @@ use std::{
     ffi::OsStr,
     fs::{read_dir, read_link, symlink_metadata, File, ReadDir},
     io::{self, BufReader, Read},
-    os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
 struct ReadAsIter<R: Read>(BufReader<R>);
@@ -109,7 +108,7 @@ pub trait ContainEqual {
     fn contains(&self, p: &TreeEntry, root: &Path) -> bool;
 }
 
-impl ContainEqual for Vec<&Path> {
+impl ContainEqual for Vec<PathBuf> {
     fn contains(&self, e: &TreeEntry, root: &Path) -> bool {
         let p = match e {
             TreeEntry::File(p) => p,
@@ -117,15 +116,22 @@ impl ContainEqual for Vec<&Path> {
             TreeEntry::Dir(_) => unreachable!(),
         };
         let p = p.strip_prefix(root).unwrap();
-        self.as_slice().contains(&p)
+        for inner_p in self.iter() {
+            if p == inner_p {
+                return true;
+            }
+        }
+        false
     }
 }
 
 pub fn list_diff(tested: &[u8], root: impl AsRef<Path>) -> std::io::Result<bool> {
+    use std::string::FromUtf8Error;
     let test_list: Vec<_> = tested
         .split(|c| *c == b'\n')
-        .map(|p| Path::new(OsStr::from_bytes(p)))
-        .collect();
+        .map(|p| Ok::<PathBuf, FromUtf8Error>(PathBuf::from(String::from_utf8(p.to_vec())?)))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| std::io::Error::other(e))?;
     let reference = TreeEntry::new(root.as_ref())?;
     diff_entry(&test_list, reference, root.as_ref())
 }
