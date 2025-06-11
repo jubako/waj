@@ -153,7 +153,7 @@ impl RequestHandler {
             // Do not try to parse byte range if we have a etag matching.
             None
         } else {
-            get_byte_range(&request)
+            get_byte_range(request)
         };
         let mut response = match byte_range_request {
             None | Some(Err(_)) => {
