@@ -165,6 +165,7 @@ impl ContainEqual for Client {
             TreeEntry::Link(p) => (p, true),
             TreeEntry::Dir(_) => unreachable!(),
         };
+
         let p = abs_p.strip_prefix(root).unwrap();
         let url = self.base_url.clone() + p.to_str().unwrap();
         let resp = self.get(&url);
@@ -217,18 +218,33 @@ pub fn diff_entry(
     root: &Path,
 ) -> std::io::Result<bool> {
     use rayon::prelude::*;
-    if let TreeEntry::Dir(path) = reference {
-        Ok(EntryIterator::new(&path)
+    match reference {
+        TreeEntry::Dir(path) => Ok(EntryIterator::new(&path)
             .collect::<Vec<_>>()
             .into_par_iter()
             .map(|child| diff_entry(tested_content, child, root).unwrap())
-            .all(|ok| ok))
-    } else {
-        if !tested_content.contains(&reference, root) {
-            println!("{:?} not found", reference);
-            Ok(false)
-        } else {
-            Ok(true)
+            .all(|ok| ok)),
+        TreeEntry::File(_) => {
+            if !tested_content.contains(&reference, root) {
+                println!("{:?} not found", reference);
+                Ok(false)
+            } else {
+                Ok(true)
+            }
+        }
+        TreeEntry::Link(ref abs_p) => {
+            let target = abs_p
+                .parent()
+                .unwrap()
+                .join(read_link(abs_p).expect("Read_link should succeed"));
+            if target.is_dir() {
+                Ok(true)
+            } else if !tested_content.contains(&reference, root) {
+                println!("{:?} not found", reference);
+                Ok(false)
+            } else {
+                Ok(true)
+            }
         }
     }
 }
