@@ -1,5 +1,6 @@
 use crate::create::{EntryKind, EntryStoreCreator, EntryTrait, Void};
 use crate::error::CreatorError;
+use core::option::Option::None;
 use jbk::creator::{CompHint, ContentAdder, InputReader};
 use mime_guess::mime;
 use std::borrow::Cow;
@@ -69,12 +70,18 @@ impl EntryTrait for FsEntry {
             }
             FsEntryKind::Link => {
                 let path = &self.path;
-                Some(EntryKind::Redirect(
-                    fs::read_link(path)?
-                        .to_str()
-                        .unwrap_or_else(|| panic!("{path:?} must be a utf8"))
-                        .to_owned(),
-                ))
+                let target = fs::read_link(path)?;
+                let abs_target = path.parent().unwrap().join(&target);
+                if abs_target.is_dir() {
+                    None
+                } else {
+                    Some(EntryKind::Redirect(
+                        target
+                            .to_str()
+                            .unwrap_or_else(|| panic!("{path:?} must be a utf8"))
+                            .to_owned(),
+                    ))
+                }
             }
             FsEntryKind::Other => None,
         })

@@ -12,3 +12,7 @@ pub use entry::*;
 pub use serve::Server;
 pub use waj::Waj;
 //pub use walk::*;
+
+#[cfg(test)]
+#[rustest::main]
+fn main() {}

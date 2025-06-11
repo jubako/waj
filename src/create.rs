@@ -70,6 +70,19 @@ pub struct Options {
     verbose: u8,
 }
 
+fn check_input_paths_exist(file_list: &[PathBuf]) -> Result<()> {
+    // Check that input files actually exists
+    for file in file_list.iter() {
+        if !file.exists() {
+            return Err(anyhow!(
+                "Input {} path doesn't exist or cannot be accessed",
+                file.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn check_output_path_writable(out_file: &Path, force: bool) -> Result<()> {
     let out_file = absolute(out_file)?;
     if !out_file.parent().unwrap().is_dir() {
@@ -215,6 +228,8 @@ pub fn create(options: Options) -> Result<()> {
             })
             .collect::<Result<Vec<_>>>()?
     };
+
+    check_input_paths_exist(&files_to_add)?;
 
     for infile in files_to_add {
         creator.add_from_path(&infile)?;

@@ -47,7 +47,7 @@ impl jbk::reader::CompareTrait for EntryCompare<'_> {
             .get_entry_reader(idx)
             .expect("idx should be valid");
         let entry_path = self.comparator.path_property.create(&reader)?;
-        Ok(entry_path.cmp(self.path_value)?)
+        entry_path.cmp(self.path_value)
     }
     fn ordered(&self) -> bool {
         true

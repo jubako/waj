@@ -2,6 +2,8 @@ use crate::common::{AllProperties, Builder, Entry};
 use crate::error::{BaseError, WajError, WajFormatError};
 use crate::Waj;
 use ascii::IntoAsciiString;
+use core::iter::Iterator;
+use http_range_header::{parse_range_header, ParsedRanges};
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::{ByteRegion, ByteSlice};
 use log::{debug, error, trace, warn};
@@ -88,11 +90,26 @@ impl Builder for RedirectBuilder {
 
 type FullBuilder = (ContentBuilder, RedirectBuilder);
 
+struct Part {
+    pub start: u64,
+    pub end: u64,
+    pub size: jbk::Size,
+    pub content_size: u64,
+    pub byte_stream: Box<dyn std::io::Read + Send>,
+}
+
 // A internal server, local to one thread.
 struct RequestHandler {
     waj: Arc<Waj>,
     next_request_id: Arc<AtomicUsize>,
     etag_value: String,
+}
+
+fn get_byte_range(r: &Request) -> Option<Result<ParsedRanges, ()>> {
+    r.headers()
+        .iter()
+        .find(|header| header.field.equiv("Range"))
+        .map(|header| parse_range_header(header.value.as_str()).map_err(|_| ()))
 }
 
 impl RequestHandler {
@@ -123,23 +140,98 @@ impl RequestHandler {
     /// We set cache header as content will never change without waj change.
     fn build_response_from_bytes(
         &self,
+        request: &Request,
         bytes: ByteRegion,
-        with_content: bool,
+        head_request: bool,
+        etag_match: bool,
         status_code: u16,
     ) -> ResponseBox {
-        let content_size = if bytes.size().into_u64() <= u16::MAX as u64 {
-            Some(bytes.size().into_u64() as usize)
-        } else {
+        let with_content = !head_request && !etag_match;
+        let content_size = bytes.size().into_u64();
+
+        let byte_range_request = if etag_match {
+            // Do not try to parse byte range if we have a etag matching.
             None
+        } else {
+            get_byte_range(request)
         };
-        let mut response =
-            Self::build_response_from_read(bytes.stream(), content_size, with_content, status_code);
-        if let Some(size) = content_size {
-            response.add_header(Header {
-                field: "Content-Length".parse().unwrap(),
-                value: size.to_string().parse().unwrap(),
-            });
-        }
+        let mut response = match byte_range_request {
+            None | Some(Err(_)) => {
+                if content_size > usize::MAX as u64 {
+                    return Response::empty(StatusCode(500)).boxed();
+                }
+                let mut response = Self::build_response_from_read(
+                    bytes.stream(),
+                    Some(content_size as usize),
+                    with_content,
+                    status_code,
+                );
+                response.add_header(
+                    Header::from_bytes("Content-Length", content_size.to_string()).unwrap(),
+                );
+                response.boxed()
+            }
+            Some(Ok(ranges)) => match ranges.validate(content_size) {
+                Ok(ranges) => {
+                    let parts: Result<Vec<Part>, _> = ranges
+                        .iter()
+                        .map(|range| {
+                            let offset = jbk::Offset::from(*range.start());
+                            let size = jbk::Size::from(range.end() + 1 - range.start());
+                            if size.into_u64() > usize::MAX as u64 {
+                                return Err(StatusCode(500));
+                            }
+                            let byte_stream = bytes.cut(offset, size).stream();
+                            Ok(Part {
+                                start: *range.start(),
+                                end: *range.end(),
+                                size,
+                                content_size,
+                                byte_stream: Box::new(byte_stream),
+                            })
+                        })
+                        .collect();
+                    match parts {
+                        Err(status_code) => Response::empty(status_code).boxed(),
+                        Ok(mut parts) => {
+                            if parts.len() == 1 {
+                                let part = parts.pop().unwrap();
+                                let content_range_header = Header::from_bytes(
+                                    "Content-Range",
+                                    format!(
+                                        "bytes {}-{}/{}",
+                                        part.start, part.end, part.content_size
+                                    ),
+                                )
+                                .unwrap();
+                                let response = Response::new(
+                                    StatusCode(206),
+                                    vec![content_range_header],
+                                    part.byte_stream,
+                                    Some(part.size.into_u64() as usize),
+                                    None,
+                                );
+                                response.boxed()
+                            } else {
+                                // TODO: Handle multipart here
+                                let response = Response::new_empty(StatusCode(416));
+                                response.boxed()
+                            }
+                        }
+                    }
+                }
+                Err(_) => {
+                    // TODO 416
+                    let mut response = Response::empty(StatusCode(416));
+                    response.add_header(
+                        Header::from_bytes("Content-Range", format!("bytes */{}", content_size))
+                            .unwrap(),
+                    );
+                    response.boxed()
+                }
+            },
+        };
+
         response.add_header(Header {
             field: "Cache-Control".parse().unwrap(),
             value: "max-age=86400, must-revalidate".parse().unwrap(),
@@ -147,6 +239,10 @@ impl RequestHandler {
         response.add_header(Header {
             field: "ETag".parse().unwrap(),
             value: self.etag_value.clone().into_ascii_string().unwrap(),
+        });
+        response.add_header(Header {
+            field: "Accept-Ranges".parse().unwrap(),
+            value: "bytes".parse().unwrap(),
         });
         response
     }
@@ -160,8 +256,10 @@ impl RequestHandler {
     /// If not, we have to generate a dummy content (and no cache, as it may change if server change)
     fn build_content_response(
         &self,
+        request: &Request,
         bytes: jbk::reader::MayMissPack<ByteRegion>,
-        with_content: bool,
+        head_request: bool,
+        etag_match: bool,
         status_code: u16,
         mimetype: &str,
     ) -> Result<ResponseBox, BaseError> {
@@ -192,8 +290,12 @@ impl RequestHandler {
                 };
 
                 let msg = std::io::Cursor::new(msg);
-                let mut response =
-                    Self::build_response_from_read(msg, None, with_content, status_code);
+                let mut response = Self::build_response_from_read(
+                    msg,
+                    None,
+                    !head_request && !etag_match,
+                    status_code,
+                );
                 response.add_header(Header {
                     field: "Content-Type".parse().unwrap(),
                     value: mimetype.parse().unwrap(),
@@ -205,7 +307,13 @@ impl RequestHandler {
                 Ok(response)
             }
             jbk::reader::MayMissPack::FOUND(bytes) => {
-                let mut response = self.build_response_from_bytes(bytes, with_content, status_code);
+                let mut response = self.build_response_from_bytes(
+                    request,
+                    bytes,
+                    head_request,
+                    etag_match,
+                    status_code,
+                );
                 response.add_header(Header {
                     field: "Content-Type".parse().unwrap(),
                     value: mimetype.parse().unwrap(),
@@ -218,7 +326,13 @@ impl RequestHandler {
     /// Handle a get/head request for a url
     ///
     /// Mostly search for the entry, and generate corresponding response or 404.
-    fn handle_get(&self, url: &str, with_content: bool) -> Result<ResponseBox, BaseError> {
+    fn handle_get(
+        &self,
+        request: &Request,
+        url: &str,
+        head_request: bool,
+        etag_match: bool,
+    ) -> Result<ResponseBox, BaseError> {
         // Search for entry... Using some variation around url (remove querystring, add index.html...)
         for url in url_variants(url) {
             let url = url.strip_prefix('/').unwrap_or(&url);
@@ -232,15 +346,17 @@ impl RequestHandler {
                             .and_then(|m| m.transpose())
                             .ok_or(WajFormatError("Content address not valid"))?;
                         return self.build_content_response(
+                            request,
                             bytes,
-                            with_content,
-                            200,
+                            head_request,
+                            etag_match,
+                            if etag_match { 304 } else { 200 },
                             &String::from_utf8_lossy(&e.mimetype),
                         );
                     }
                     Entry::Redirect(r) => {
                         let mut response = Response::empty(StatusCode(302));
-                        let location = format!("/{}", percent_encode(&r, CONTROLS));
+                        let location = format!("{}", percent_encode(&r, CONTROLS));
                         response.add_header(Header {
                             field: "Location".parse().unwrap(),
                             value: location.parse().unwrap(),
@@ -261,7 +377,8 @@ impl RequestHandler {
                 .ok_or(WajFormatError("Content address not valid"))?;
 
             if let jbk::reader::MayMissPack::FOUND(bytes) = bytes {
-                let mut response = self.build_response_from_bytes(bytes, with_content, 404);
+                let mut response =
+                    self.build_response_from_bytes(request, bytes, head_request, etag_match, 404);
                 response.add_header(Header {
                     field: "Content-Type".parse().unwrap(),
                     value: String::from_utf8_lossy(&e.mimetype).parse().unwrap(),
@@ -293,20 +410,22 @@ impl RequestHandler {
 
         debug!("[{request_id}] : {} {url}", request.method());
 
+        let head_request = match request.method() {
+            Method::Get => false,
+            Method::Head => true,
+            _ => {
+                request.respond(Response::empty(StatusCode(500))).unwrap();
+                return;
+            }
+        };
+
         let etag_match = if let Some(request_etag) = get_etag_from_headers(request.headers()) {
             request_etag == self.etag_value
         } else {
             false
         };
 
-        let ret = match request.method() {
-            Method::Get => self.handle_get(&url, !etag_match),
-            Method::Head => self.handle_get(&url, false),
-            _ => {
-                request.respond(Response::empty(StatusCode(500))).unwrap();
-                return;
-            }
-        };
+        let ret = self.handle_get(&request, &url, head_request, etag_match);
 
         let elapsed_time = now.elapsed();
 
@@ -321,13 +440,7 @@ impl RequestHandler {
             Ok(response) => {
                 trace!("[{request_id} {}µs {url}] Ok", elapsed_time.as_micros());
 
-                if etag_match {
-                    request
-                        .respond(response.with_status_code(StatusCode(304)))
-                        .unwrap();
-                } else {
-                    request.respond(response).unwrap();
-                }
+                request.respond(response).unwrap();
             }
         }
     }
