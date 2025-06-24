@@ -22,7 +22,7 @@ fn main() -> ExitCode {
         Ok(exe_path) => {
             let server = waj::Server::new(exe_path);
             match server {
-                Ok(server) => match server.serve(address) {
+                Ok(server) => match server.serve(address, None) {
                     Ok(()) => ExitCode::SUCCESS,
                     Err(e) => {
                         eprintln!("Error: {e}");

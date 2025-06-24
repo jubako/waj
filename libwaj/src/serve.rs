@@ -3,6 +3,7 @@ use crate::error::{BaseError, WajError, WajFormatError};
 use crate::Waj;
 use ascii::IntoAsciiString;
 use core::iter::Iterator;
+use core::num::NonZeroUsize;
 use http_range_header::{parse_range_header, ParsedRanges};
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::{ByteRegion, ByteSlice};
@@ -467,7 +468,7 @@ impl Server {
         Ok(Self { waj, etag_value })
     }
 
-    pub fn serve(&self, address: &str) -> jbk::Result<()> {
+    pub fn serve(&self, address: &str, nb_threads: Option<NonZeroUsize>) -> jbk::Result<()> {
         let addr = address.to_socket_addrs().unwrap().next().unwrap();
         let server = Arc::new(tiny_http::Server::http(addr).unwrap());
         let mut guards = Vec::with_capacity(4);
@@ -477,7 +478,12 @@ impl Server {
             signal_hook::flag::register_conditional_shutdown(signal, 1, Arc::clone(&quit_flag))?;
             signal_hook::flag::register(signal, Arc::clone(&quit_flag))?;
         }
-        for _ in 0..4 {
+        let nb_threads = if let Some(t) = nb_threads {
+            t
+        } else {
+            std::thread::available_parallelism()?
+        };
+        for _ in 0..nb_threads.into() {
             let server = server.clone();
             let handler = RequestHandler::new(
                 Arc::clone(&self.waj),
