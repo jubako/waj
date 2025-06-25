@@ -1,20 +1,19 @@
 use crate::common::{AllProperties, Builder, Entry};
-use crate::error::{BaseError, WajError, WajFormatError};
+use crate::error::{BaseError, WajFormatError};
 use crate::Waj;
 use ascii::IntoAsciiString;
 use core::iter::Iterator;
-use core::num::NonZeroUsize;
 use http_range_header::{parse_range_header, ParsedRanges};
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::{ByteRegion, ByteSlice};
 use log::{debug, error, trace, warn};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
-use std::net::ToSocketAddrs;
-use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tiny_http::*;
+
+use super::Router;
 
 fn url_variants(url: &str) -> Vec<Cow<str>> {
     let mut vec: Vec<Cow<str>> = vec![];
@@ -100,7 +99,7 @@ struct Part {
 }
 
 // A internal server, local to one thread.
-struct RequestHandler {
+pub struct RequestHandler {
     waj: Arc<Waj>,
     next_request_id: Arc<AtomicUsize>,
     etag_value: String,
@@ -114,7 +113,7 @@ fn get_byte_range(r: &Request) -> Option<Result<ParsedRanges, ()>> {
 }
 
 impl RequestHandler {
-    fn new(waj: Arc<Waj>, next_request_id: Arc<AtomicUsize>, etag_value: String) -> Self {
+    pub fn new(waj: Arc<Waj>, next_request_id: Arc<AtomicUsize>, etag_value: String) -> Self {
         Self {
             waj,
             next_request_id,
@@ -399,7 +398,7 @@ impl RequestHandler {
     /// - Handle etag by requesting response without content if etag match and answering a 304.
     ///
     /// Cache header is not handle here as it depends of the response itself.
-    fn handle(&self, request: Request) {
+    pub fn handle(&self, request: Request) {
         trace!("Get req {request:?}");
         let request_id = self.next_request_id.fetch_add(1, Ordering::Relaxed);
 
@@ -447,11 +446,6 @@ impl RequestHandler {
     }
 }
 
-pub struct Server {
-    waj: Arc<Waj>,
-    etag_value: String,
-}
-
 fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
     for header in headers {
         if header.field.equiv("if-none-match") {
@@ -461,68 +455,8 @@ fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
     None
 }
 
-trait Router {
-    fn route(&self, request: &Request) -> &RequestHandler;
-}
-
 impl Router for RequestHandler {
     fn route(&self, _request: &Request) -> &RequestHandler {
         self
-    }
-}
-
-impl Server {
-    pub fn new<P: AsRef<Path>>(infile: P) -> Result<Self, WajError> {
-        let waj = Arc::new(Waj::new(infile)?);
-        let etag_value = "W/\"".to_owned() + &waj.uuid().to_string() + "\"";
-
-        Ok(Self { waj, etag_value })
-    }
-
-    pub fn serve(&self, address: &str, nb_threads: Option<NonZeroUsize>) -> jbk::Result<()> {
-        let addr = address.to_socket_addrs().unwrap().next().unwrap();
-        let server = Arc::new(tiny_http::Server::http(addr).unwrap());
-        let next_request_id = Arc::new(AtomicUsize::new(0));
-        let quit_flag = Arc::new(AtomicBool::new(false));
-        for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
-            signal_hook::flag::register_conditional_shutdown(signal, 1, Arc::clone(&quit_flag))?;
-            signal_hook::flag::register(signal, Arc::clone(&quit_flag))?;
-        }
-        let nb_threads = if let Some(t) = nb_threads {
-            t
-        } else {
-            std::thread::available_parallelism()?
-        };
-
-        let router = RequestHandler::new(
-            Arc::clone(&self.waj),
-            Arc::clone(&next_request_id),
-            self.etag_value.clone(),
-        );
-
-        std::thread::scope(|s| {
-            for _ in 0..nb_threads.into() {
-                s.spawn(|| loop {
-                    if quit_flag.load(Ordering::Relaxed) {
-                        break;
-                    }
-                    match server.recv_timeout(std::time::Duration::from_millis(500)) {
-                        Err(e) => {
-                            error!("error {e}");
-                            break;
-                        }
-                        Ok(rq) => match rq {
-                            Some(rq) => {
-                                let handler = router.route(&rq);
-                                handler.handle(rq)
-                            }
-                            None => continue,
-                        },
-                    };
-                });
-            }
-        });
-
-        Ok(())
     }
 }
