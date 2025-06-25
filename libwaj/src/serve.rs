@@ -460,6 +460,17 @@ fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
     }
     None
 }
+
+trait Router {
+    fn route(&self, request: &Request) -> &RequestHandler;
+}
+
+impl Router for RequestHandler {
+    fn route(&self, _request: &Request) -> &RequestHandler {
+        self
+    }
+}
+
 impl Server {
     pub fn new<P: AsRef<Path>>(infile: P) -> Result<Self, WajError> {
         let waj = Arc::new(Waj::new(infile)?);
@@ -471,7 +482,6 @@ impl Server {
     pub fn serve(&self, address: &str, nb_threads: Option<NonZeroUsize>) -> jbk::Result<()> {
         let addr = address.to_socket_addrs().unwrap().next().unwrap();
         let server = Arc::new(tiny_http::Server::http(addr).unwrap());
-        let mut guards = Vec::with_capacity(4);
         let next_request_id = Arc::new(AtomicUsize::new(0));
         let quit_flag = Arc::new(AtomicBool::new(false));
         for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
@@ -483,37 +493,35 @@ impl Server {
         } else {
             std::thread::available_parallelism()?
         };
-        for _ in 0..nb_threads.into() {
-            let server = server.clone();
-            let handler = RequestHandler::new(
-                Arc::clone(&self.waj),
-                Arc::clone(&next_request_id),
-                self.etag_value.clone(),
-            );
-            let quit_flag = Arc::clone(&quit_flag);
 
-            let guard = std::thread::spawn(move || loop {
-                if quit_flag.load(Ordering::Relaxed) {
-                    break;
-                }
-                match server.recv_timeout(std::time::Duration::from_millis(500)) {
-                    Err(e) => {
-                        error!("error {e}");
+        let router = RequestHandler::new(
+            Arc::clone(&self.waj),
+            Arc::clone(&next_request_id),
+            self.etag_value.clone(),
+        );
+
+        std::thread::scope(|s| {
+            for _ in 0..nb_threads.into() {
+                s.spawn(|| loop {
+                    if quit_flag.load(Ordering::Relaxed) {
                         break;
                     }
-                    Ok(rq) => match rq {
-                        Some(rq) => handler.handle(rq),
-                        None => continue,
-                    },
-                };
-            });
-
-            guards.push(guard);
-        }
-
-        for guard in guards {
-            guard.join().unwrap();
-        }
+                    match server.recv_timeout(std::time::Duration::from_millis(500)) {
+                        Err(e) => {
+                            error!("error {e}");
+                            break;
+                        }
+                        Ok(rq) => match rq {
+                            Some(rq) => {
+                                let handler = router.route(&rq);
+                                handler.handle(rq)
+                            }
+                            None => continue,
+                        },
+                    };
+                });
+            }
+        });
 
         Ok(())
     }
