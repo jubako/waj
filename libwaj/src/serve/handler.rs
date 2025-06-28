@@ -2,14 +2,13 @@ use crate::common::{AllProperties, Builder, Entry};
 use crate::error::{BaseError, WajFormatError};
 use crate::Waj;
 use ascii::IntoAsciiString;
-use core::iter::Iterator;
 use http_range_header::{parse_range_header, ParsedRanges};
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::{ByteRegion, ByteSlice};
 use log::{debug, error, trace, warn};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::iter::Iterator;
 use std::sync::Arc;
 use tiny_http::*;
 
@@ -99,9 +98,8 @@ struct Part {
 }
 
 // A internal server, local to one thread.
-pub struct RequestHandler {
+pub struct WajServer {
     waj: Arc<Waj>,
-    next_request_id: Arc<AtomicUsize>,
     etag_value: String,
 }
 
@@ -112,13 +110,9 @@ fn get_byte_range(r: &Request) -> Option<Result<ParsedRanges, ()>> {
         .map(|header| parse_range_header(header.value.as_str()).map_err(|_| ()))
 }
 
-impl RequestHandler {
-    pub fn new(waj: Arc<Waj>, next_request_id: Arc<AtomicUsize>, etag_value: String) -> Self {
-        Self {
-            waj,
-            next_request_id,
-            etag_value,
-        }
+impl WajServer {
+    pub fn new(waj: Arc<Waj>, etag_value: String) -> Self {
+        Self { waj, etag_value }
     }
 
     fn build_response_from_read<R: std::io::Read + Send + 'static>(
@@ -398,9 +392,8 @@ impl RequestHandler {
     /// - Handle etag by requesting response without content if etag match and answering a 304.
     ///
     /// Cache header is not handle here as it depends of the response itself.
-    pub fn handle(&self, request: Request) {
+    pub fn handle(&self, request: Request, request_id: usize) {
         trace!("Get req {request:?}");
-        let request_id = self.next_request_id.fetch_add(1, Ordering::Relaxed);
 
         let url = percent_decode(request.url().as_bytes())
             .decode_utf8()
@@ -455,8 +448,8 @@ fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
     None
 }
 
-impl Router for RequestHandler {
-    fn route(&self, _request: &Request) -> &RequestHandler {
+impl Router for WajServer {
+    fn route(&self, _request: &Request) -> &WajServer {
         self
     }
 }
