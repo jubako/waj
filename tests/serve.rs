@@ -29,7 +29,7 @@ fn BaseWajFile(source_dir: SharedTestDir) -> TmpWaj {
 fn test_serve(source_dir: SharedTestDir, waj_file: BaseWajFile) -> Result {
     let addr = "localhost:5050";
 
-    let mut command = cmd!("waj", "serve", waj_file.path(), &addr);
+    let mut command = cmd!("waj", "serve", waj_file.path(), "-a", &addr, "-v");
 
     let mut child = command.spawn()?;
     std::thread::sleep(std::time::Duration::from_millis(100));

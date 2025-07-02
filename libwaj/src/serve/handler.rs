@@ -1,5 +1,5 @@
 use crate::common::{AllProperties, Builder, Entry};
-use crate::error::{BaseError, WajFormatError};
+use crate::error::{BaseError, WajError, WajFormatError};
 use crate::Waj;
 use ascii::IntoAsciiString;
 use http_range_header::{parse_range_header, ParsedRanges};
@@ -9,6 +9,7 @@ use log::{debug, error, trace, warn};
 use percent_encoding::{percent_decode, percent_encode, CONTROLS};
 use std::borrow::Cow;
 use std::iter::Iterator;
+use std::path::Path;
 use std::sync::Arc;
 use tiny_http::*;
 
@@ -111,6 +112,12 @@ fn get_byte_range(r: &Request) -> Option<Result<ParsedRanges, ()>> {
 }
 
 impl WajServer {
+    pub fn open(path: &Path) -> Result<Self, WajError> {
+        let waj = Arc::new(Waj::new(path)?);
+        let etag_value = "W/\"".to_owned() + &waj.uuid().to_string() + "\"";
+
+        Ok(WajServer::new(waj, etag_value))
+    }
     pub fn new(waj: Arc<Waj>, etag_value: String) -> Self {
         Self { waj, etag_value }
     }
@@ -449,7 +456,7 @@ fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
 }
 
 impl Router for WajServer {
-    fn route(&self, _request: &Request) -> &WajServer {
-        self
+    fn route(&self, _request: &Request) -> Option<&WajServer> {
+        Some(self)
     }
 }

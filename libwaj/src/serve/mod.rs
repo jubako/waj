@@ -1,33 +1,53 @@
-use crate::error::WajError;
-use crate::Waj;
 use log::error;
+use std::collections::HashMap;
 use std::iter::Iterator;
 use std::net::ToSocketAddrs;
 use std::num::NonZeroUsize;
-use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tiny_http::*;
 mod handler;
 
-use handler::WajServer;
+pub use handler::WajServer;
 
 pub struct Server {
-    router: WajServer,
+    router: Box<dyn Router>,
 }
 
-trait Router {
-    fn route(&self, request: &Request) -> &WajServer;
+pub trait Router: Sync {
+    fn route(&self, request: &Request) -> Option<&WajServer>;
+}
+
+pub struct HostRouter(HashMap<String, WajServer>);
+
+impl HostRouter {
+    pub fn new(map: HashMap<String, WajServer>) -> Self {
+        Self(map)
+    }
+}
+
+fn get_host_from_headers(headers: &[Header]) -> Option<String> {
+    for header in headers {
+        if header.field.equiv("host") {
+            return Some(header.value.to_string());
+        }
+    }
+    None
+}
+
+impl Router for HostRouter {
+    fn route(&self, request: &Request) -> Option<&WajServer> {
+        let host = get_host_from_headers(request.headers());
+        match host {
+            None => None,
+            Some(host) => self.0.get(&host),
+        }
+    }
 }
 
 impl Server {
-    pub fn new<P: AsRef<Path>>(infile: P) -> Result<Self, WajError> {
-        let waj = Arc::new(Waj::new(infile)?);
-        let etag_value = "W/\"".to_owned() + &waj.uuid().to_string() + "\"";
-
-        Ok(Self {
-            router: WajServer::new(waj, etag_value),
-        })
+    pub fn new(router: Box<dyn Router>) -> Self {
+        Self { router }
     }
 
     pub fn serve(&self, address: &str, nb_threads: Option<NonZeroUsize>) -> jbk::Result<()> {
@@ -59,7 +79,12 @@ impl Server {
                         Ok(rq) => match rq {
                             Some(rq) => {
                                 let handler = self.router.route(&rq);
-                                handler.handle(rq, next_request_id.fetch_add(1, Ordering::Relaxed))
+                                if let Some(handler) = handler {
+                                    handler
+                                        .handle(rq, next_request_id.fetch_add(1, Ordering::Relaxed))
+                                } else {
+                                    rq.respond(Response::empty(400)).unwrap()
+                                }
                             }
                             None => continue,
                         },
