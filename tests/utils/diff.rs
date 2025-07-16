@@ -136,29 +136,53 @@ pub fn list_diff(tested: &[u8], root: impl AsRef<Path>) -> std::io::Result<bool>
     diff_entry(&test_list, reference, root.as_ref())
 }
 
-struct Client {
+pub struct Client {
     base_url: String,
     client: ureq::Agent,
+    host: Option<String>,
 }
 
 impl Client {
-    fn new(base_url: String) -> Self {
+    pub fn new(base_url: String) -> Self {
         Self {
             base_url: String::from("http://") + &base_url + "/",
             client: ureq::Agent::config_builder()
+                .http_status_as_error(false)
                 .max_redirects(0)
                 .max_redirects_will_error(false)
                 .build()
                 .into(),
+            host: None,
         }
     }
 
-    fn get(&self, url: &str) -> Result<ureq::http::Response<ureq::Body>, ureq::Error> {
+    pub fn new_with_host(base_url: String, host: String) -> Self {
+        Self {
+            base_url: String::from("http://") + &base_url + "/",
+            client: ureq::Agent::config_builder()
+                .http_status_as_error(false)
+                .max_redirects(0)
+                .max_redirects_will_error(false)
+                .build()
+                .into(),
+            host: Some(host),
+        }
+    }
+
+    pub fn url(&self, url: &str) -> String {
+        self.base_url.clone() + url
+    }
+
+    pub fn get(&self, url: &str) -> Result<ureq::http::Response<ureq::Body>, ureq::Error> {
         let mut retry = 3;
-        let mut resp = self.client.get(url).call();
+        let mut resp = Err(ureq::Error::HostNotFound);
         while retry != 0 && resp.is_err() {
             retry -= 1;
-            resp = self.client.get(url).call();
+            let mut req = self.client.get(url);
+            if let Some(h) = self.host.as_ref() {
+                req = req.header("host", h);
+            }
+            resp = req.call();
         }
         resp
     }
@@ -173,7 +197,7 @@ impl ContainEqual for Client {
         };
 
         let p = abs_p.strip_prefix(root).unwrap();
-        let url = self.base_url.clone() + p.to_str().unwrap();
+        let url = self.url(p.to_str().unwrap());
         let resp = self.get(&url);
 
         let mut resp = match resp {
@@ -212,8 +236,7 @@ impl ContainEqual for Client {
     }
 }
 
-pub fn server_diff(url: &str, root: impl AsRef<Path>) -> std::io::Result<bool> {
-    let client = Client::new(url.into());
+pub fn server_diff(client: Client, root: impl AsRef<Path>) -> std::io::Result<bool> {
     let reference = TreeEntry::new(root.as_ref())?;
     diff_entry(&client, reference, root.as_ref())
 }

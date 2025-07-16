@@ -6,7 +6,7 @@ use std::{io::Read, path::Path, process::Command};
 use rand::prelude::*;
 
 #[allow(unused_imports)]
-pub use diff::{list_diff, server_diff, TreeEntry};
+pub use diff::{list_diff, server_diff, Client, TreeEntry};
 use rustest::fixture;
 
 #[cfg(unix)]
