@@ -131,7 +131,7 @@ pub fn list_diff(tested: &[u8], root: impl AsRef<Path>) -> std::io::Result<bool>
         .split(|c| *c == b'\n')
         .map(|p| Ok::<PathBuf, FromUtf8Error>(PathBuf::from(String::from_utf8(p.to_vec())?)))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| std::io::Error::other(e))?;
+        .map_err(std::io::Error::other)?;
     let reference = TreeEntry::new(root.as_ref())?;
     diff_entry(&test_list, reference, root.as_ref())
 }
@@ -166,6 +166,19 @@ impl Client {
                 .build()
                 .into(),
             host: Some(host),
+        }
+    }
+
+    pub fn new_with_subpath(base_url: String, sub_path: String) -> Self {
+        Self {
+            base_url: String::from("http://") + &base_url + "/" + &sub_path + "/",
+            client: ureq::Agent::config_builder()
+                .http_status_as_error(false)
+                .max_redirects(0)
+                .max_redirects_will_error(false)
+                .build()
+                .into(),
+            host: None,
         }
     }
 

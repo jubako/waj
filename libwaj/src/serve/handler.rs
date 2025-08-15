@@ -6,7 +6,7 @@ use http_range_header::{parse_range_header, ParsedRanges};
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::{ByteRegion, ByteSlice};
 use log::{debug, error, trace, warn};
-use percent_encoding::{percent_decode, percent_encode, CONTROLS};
+use percent_encoding::{percent_decode_str, percent_encode, CONTROLS};
 use std::borrow::Cow;
 use std::iter::Iterator;
 use std::path::Path;
@@ -399,12 +399,10 @@ impl WajServer {
     /// - Handle etag by requesting response without content if etag match and answering a 304.
     ///
     /// Cache header is not handle here as it depends of the response itself.
-    pub fn handle(&self, request: Request, request_id: usize) {
+    pub fn handle(&self, request: Request, url: &str, request_id: usize) {
         trace!("Get req {request:?}");
 
-        let url = percent_decode(request.url().as_bytes())
-            .decode_utf8()
-            .unwrap();
+        let url = percent_decode_str(url).decode_utf8().unwrap();
 
         let now = std::time::Instant::now();
 
@@ -456,7 +454,7 @@ fn get_etag_from_headers(headers: &[Header]) -> Option<String> {
 }
 
 impl Router for WajServer {
-    fn route(&self, _request: &Request) -> Option<&WajServer> {
-        Some(self)
+    fn route(&self, request: &Request) -> Option<(&WajServer, String)> {
+        Some((self, request.url().into()))
     }
 }

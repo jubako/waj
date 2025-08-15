@@ -5,6 +5,12 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::{iter::Iterator, num::NonZeroUsize};
 
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum RouterKind {
+    Host,
+    Path,
+}
+
 /// Serve the waj archive on the web.
 #[derive(Parser)]
 pub struct Options {
@@ -19,6 +25,9 @@ pub struct Options {
     /// Number of threads to use to answer request
     #[arg(short, long, value_parser)]
     threads: Option<NonZeroUsize>,
+
+    #[arg(long, value_parser, default_value = "path")]
+    router: RouterKind,
 
     #[arg(from_global)]
     verbose: u8,
@@ -57,19 +66,25 @@ pub fn serve(options: Options) -> Result<()> {
             waj::WajServer::open(inputfile).with_context(|| format!("Opening {:?}", inputfile))?;
         Box::new(waj_server) as Box<dyn waj::Router>
     } else {
-        Box::new(waj::HostRouter::new(
-            input_files
-                .iter()
-                .map(|f| -> anyhow::Result<_> {
-                    let waj_server =
-                        waj::WajServer::open(f).with_context(|| format!("Opening {:?}", f))?;
-                    Ok((
-                        f.file_name().unwrap().to_string_lossy().to_string(),
-                        waj_server,
-                    ))
-                })
-                .collect::<Result<HashMap<_, _>, _>>()?,
-        ))
+        let input_files_key_map = input_files
+            .iter()
+            .map(|f| -> anyhow::Result<_> {
+                let waj_server =
+                    waj::WajServer::open(f).with_context(|| format!("Opening {:?}", f))?;
+                Ok((
+                    f.file_name().unwrap().to_string_lossy().to_string(),
+                    waj_server,
+                ))
+            })
+            .collect::<Result<HashMap<_, _>, _>>()?;
+        match options.router {
+            RouterKind::Host => {
+                Box::new(waj::HostRouter::new(input_files_key_map)) as Box<dyn waj::Router>
+            }
+            RouterKind::Path => {
+                Box::new(waj::SubPathRouter::new(input_files_key_map)) as Box<dyn waj::Router>
+            }
+        }
     };
     let server = waj::Server::new(router);
 

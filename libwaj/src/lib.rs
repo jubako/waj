@@ -9,7 +9,7 @@ pub mod walk;
 
 pub use common::{AllProperties, Builder, Entry, FullBuilderTrait, VENDOR_ID};
 pub use entry::*;
-pub use serve::{HostRouter, Router, Server, WajServer};
+pub use serve::{HostRouter, Router, Server, SubPathRouter, WajServer};
 pub use waj::Waj;
 //pub use walk::*;
 
