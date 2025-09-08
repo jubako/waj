@@ -20,20 +20,21 @@ fn main() -> ExitCode {
 
     match env::current_exe() {
         Ok(exe_path) => {
-            let server = waj::Server::new(exe_path);
-            match server {
-                Ok(server) => match server.serve(address) {
-                    Ok(()) => ExitCode::SUCCESS,
-                    Err(e) => {
-                        eprintln!("Error: {e}");
-                        ExitCode::FAILURE
-                    }
-                },
+            let waj_server = match waj::WajServer::open(&exe_path) {
+                Ok(wj) => Box::new(wj),
                 Err(waj::error::WajError::BaseError(_)) => {
                     eprintln!("Impossible to locate a Waj archive in the executable.");
                     eprintln!("This binary is not intented to be directly used, you must put a Waj archive at its end.");
-                    ExitCode::FAILURE
+                    return ExitCode::FAILURE;
                 }
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let server = waj::Server::new(waj_server);
+            match server.serve(address, None) {
+                Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
                     eprintln!("Error: {e}");
                     ExitCode::FAILURE

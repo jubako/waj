@@ -49,7 +49,7 @@ pub struct TmpServer {
 
 impl TmpServer {
     fn new(addr: String, waj_file: BaseWajFile) -> std::io::Result<Self> {
-        let child = run!(spawn, "waj", "serve", waj_file.path(), &addr);
+        let child = run!(spawn, "waj", "serve", waj_file.path(), "-a", &addr);
         Ok(Self {
             child,
             addr,
