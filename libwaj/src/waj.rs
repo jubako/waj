@@ -1,8 +1,7 @@
 use crate::error::{BaseError, WajError, WajFormatError};
 
-use super::common::{AllProperties, Builder, Comparator, Entry, FullBuilderTrait, RealBuilder};
-use jbk::reader::builder::PropertyBuilderTrait;
-use jbk::reader::{ByteSlice, Range};
+use super::common::{AllProperties, Comparator, Entry, FullBuilderTrait, RealBuilder};
+use jbk::reader::Range;
 use std::path::Path;
 
 pub struct Waj {
@@ -26,27 +25,6 @@ fn create_properties(
         index.get_store(container.get_entry_storage())?,
         container.get_value_storage(),
     )
-}
-
-struct PathBuilder {
-    path_property: jbk::reader::builder::ArrayProperty,
-}
-
-impl Builder for PathBuilder {
-    type Entry = jbk::SmallBytes;
-
-    fn new(properties: &AllProperties) -> Self {
-        Self {
-            path_property: properties.path_property.clone(),
-        }
-    }
-
-    fn create_entry(&self, _idx: jbk::EntryIdx, reader: &ByteSlice) -> jbk::Result<Self::Entry> {
-        let path_prop = self.path_property.create(reader)?;
-        let mut path = jbk::SmallBytes::new();
-        path_prop.resolve_to_vec(&mut path)?;
-        Ok(path)
-    }
 }
 
 impl Waj {

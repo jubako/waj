@@ -78,7 +78,7 @@ impl Entry {
 }
 
 impl jbk::creator::EntryTrait<Property, EntryType> for Entry {
-    fn variant_name(&self) -> Option<jbk::MayRef<EntryType>> {
+    fn variant_name(&self) -> Option<jbk::MayRef<'_, EntryType>> {
         Some(jbk::MayRef::Owned(match self.kind {
             EntryKind::Content(_) => EntryType::Content,
             EntryKind::Redirect(_) => EntryType::Redirect,
@@ -100,7 +100,7 @@ impl jbk::creator::EntryTrait<Property, EntryType> for Entry {
         self.idx.bind()
     }
 
-    fn value(&self, name: &Property) -> jbk::MayRef<jbk::creator::Value> {
+    fn value(&self, name: &Property) -> jbk::MayRef<'_, jbk::creator::Value> {
         jbk::MayRef::Owned(match name {
             Property::Path => jbk::creator::Value::Array1(Box::new(jbk::creator::ArrayS::<1> {
                 data: [self.path_prefix],

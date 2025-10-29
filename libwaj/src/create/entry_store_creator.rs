@@ -122,7 +122,7 @@ mod tests {
     struct SimpleEntry(String);
 
     impl EntryTrait for SimpleEntry {
-        fn name(&self) -> Cow<str> {
+        fn name(&self) -> Cow<'_, str> {
             Cow::Borrowed(&self.0)
         }
 
