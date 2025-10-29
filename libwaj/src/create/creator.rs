@@ -19,7 +19,7 @@ impl EntryTrait for Redirect {
         Ok(Some(EntryKind::Redirect(self.target.clone())))
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         Cow::Borrowed(&self.path)
     }
 }

@@ -19,7 +19,7 @@ pub trait EntryTrait {
     fn kind(&self) -> Result<Option<EntryKind>, CreatorError>;
 
     /// Under which name the entry will be stored
-    fn name(&self) -> Cow<str>;
+    fn name(&self) -> Cow<'_, str>;
 }
 
 pub type Void = Result<(), CreatorError>;

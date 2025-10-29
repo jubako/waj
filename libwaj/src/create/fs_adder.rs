@@ -86,7 +86,7 @@ impl EntryTrait for FsEntry {
             FsEntryKind::Other => None,
         })
     }
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         Cow::Borrowed(&self.name)
     }
 }

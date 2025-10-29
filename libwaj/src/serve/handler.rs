@@ -15,7 +15,7 @@ use tiny_http::*;
 
 use super::Router;
 
-fn url_variants(url: &str) -> Vec<Cow<str>> {
+fn url_variants(url: &str) -> Vec<Cow<'_, str>> {
     let mut vec: Vec<Cow<str>> = vec![];
     vec.push(url.into());
     let query_string_idx = url.find('?');
