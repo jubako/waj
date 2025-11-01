@@ -19,5 +19,4 @@ jobs:
         env:
          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-            cargo publish -p libwaj
-            cargo publish -p waj
+            cargo publish --workspace

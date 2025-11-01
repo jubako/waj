@@ -1,3 +1,11 @@
+# Waj 0.4.0
+
+- Allow waj serve to server several waj files. Routing can be done base on path (first part) or host.
+- Add an option `--nb-threads` to select the number of thread to use for the server
+- Test `waj create` and `waj list` command line.
+- Adapt to new Jubako api (error types, variant and property names, SmallVec, utf8 locator, array cmp)
+
+
 # Waj 0.3.0
 
 This release is based on version 0.3.2 of Jubako.
