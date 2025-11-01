@@ -143,8 +143,4 @@ jobs:
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
       run: |
-        cargo publish --dry-run -p libwaj
-        # Until cargo publish can publish serveral package in the same time,
-        # only libwaj will work in `--dry-run` mode.
-        # See https://github.com/rust-lang/cargo/issues/1169
-        #cargo publish --dry-run -p waj
+        cargo publish --dry-run --workspace
