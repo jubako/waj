@@ -23,6 +23,7 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 default-run = "waj"
+rust-version = "1.85.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
