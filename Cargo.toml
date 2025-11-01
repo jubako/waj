@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-version = "0.4.0-dev"
+version = "0.4.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
 repository = "https://github.com/jubako/waj"
 homepage = "https://github.com/jubako/waj"
@@ -12,4 +12,4 @@ license = "MIT"
 license-file = "LICENSE-MIT"
 
 [workspace.dependencies]
-jbk = { git = "https://github.com/jubako/jubako.git", package = "jubako", features = ["clap"], version = "0.4.0-dev" }
+jbk = { git = "https://github.com/jubako/jubako.git", package = "jubako", features = ["clap"], version = "0.4.0" }

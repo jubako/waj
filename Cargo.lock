@@ -729,7 +729,7 @@ dependencies = [
 
 [[package]]
 name = "jubako"
-version = "0.4.0-dev"
+version = "0.4.0"
 dependencies = [
  "blake3",
  "camino",
@@ -783,7 +783,7 @@ dependencies = [
 
 [[package]]
 name = "libwaj"
-version = "0.4.0-dev"
+version = "0.4.0"
 dependencies = [
  "ascii",
  "blake3",
@@ -1560,7 +1560,7 @@ dependencies = [
 
 [[package]]
 name = "waj"
-version = "0.4.0-dev"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
