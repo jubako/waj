@@ -1,3 +1,8 @@
+# Waj 0.4.1
+
+- Add missing license file in subcrates
+- Add mime-type definition for waj files.
+
 # Waj 0.4.0
 
 - Allow waj serve to server several waj files. Routing can be done base on path (first part) or host.
