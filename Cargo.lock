@@ -756,6 +756,7 @@ dependencies = [
 [[package]]
 name = "jubako"
 version = "0.5.0-dev"
+source = "git+https://github.com/jubako/jubako.git#2aa59e188ae36df0f7777bdaf15b3a68540d1e31"
 dependencies = [
  "blake3",
  "camino",
@@ -809,7 +810,7 @@ dependencies = [
 
 [[package]]
 name = "libwaj"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "ascii",
  "blake3",
@@ -857,9 +858,9 @@ checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
 name = "lru"
-version = "0.16.2"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96051b46fc183dc9cd4a223960ef37b9af631b55191852a8274bfef064cda20f"
+checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
 dependencies = [
  "hashbrown 0.16.0",
 ]
@@ -1587,7 +1588,7 @@ dependencies = [
 
 [[package]]
 name = "waj"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "clap",
