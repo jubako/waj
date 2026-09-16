@@ -1,3 +1,7 @@
+# Waj 0.4.2
+
+- Update Jubako version to 0.4.1 to avoid creating buggy archive.
+
 # Waj 0.4.1
 
 - Add missing license file in subcrates
