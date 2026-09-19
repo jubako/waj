@@ -1,5 +1,6 @@
 [workspace]
 members = ["libwaj", "waj"]
+exclude = [".copr"]
 resolver = "2"
 
 [workspace.package]
