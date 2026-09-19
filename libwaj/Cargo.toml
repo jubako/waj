@@ -31,6 +31,7 @@ ascii = "1.1.0"
 signal-hook = "0.3.17"
 thiserror = "2.0.9"
 http-range-header = "0.4.2"
+internment = "0.8.6"
 
 [dev-dependencies]
 rustest = { version = "0.3.1" }

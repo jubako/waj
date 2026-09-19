@@ -1,13 +1,12 @@
-use super::entry::{Entry, Path1};
+use super::entry::Entry;
 use crate::common::{EntryType, Property};
-use jbk::creator::schema;
+use jbk::creator::{schema, EntryStore};
 
 use super::{EntryKind, EntryTrait, Void};
 
-type EntryStore = jbk::creator::EntryStore<Property, EntryType, Box<Entry>>;
-
 pub struct EntryStoreCreator {
-    entry_store: Box<EntryStore>,
+    schema: schema::Schema<Property, EntryType>,
+    entry_store: Vec<Entry>,
     path_store: jbk::creator::StoreHandle,
     mime_store: jbk::creator::StoreHandle,
 }
@@ -42,10 +41,11 @@ impl EntryStoreCreator {
             Some(vec![Property::Path]),
         );
 
-        let entry_store = Box::new(EntryStore::new(schema, size_hint));
+        let entry_store = Vec::new();
 
         Self {
             entry_store,
+            schema,
             path_store,
             mime_store,
         }
@@ -61,39 +61,37 @@ impl EntryStoreCreator {
                 return Ok(());
             }
         };
-        //let idx = jbk::Vow::new(0);
         let path = entry.name().as_bytes().into();
-        let path = Path1::new(path, &self.path_store);
-        //println!("{:?}", entry.name());
         let entry = match entry_kind {
             EntryKind::Content(content_address, mimetype) => {
-                let mime_id = self.mime_store.add_value(mimetype.as_ref().as_bytes());
-                Entry::new_content(path, mime_id, content_address)
+                Entry::new_content(path, mimetype.as_ref().as_bytes().into(), content_address)
             }
             EntryKind::Redirect(target) => {
                 let target = target.as_bytes().into();
-                let target = Path1::new(target, &self.path_store);
                 Entry::new_redirect(path, target)
             }
         };
-        self.entry_store.add_entry(Box::new(entry));
+        self.entry_store.push(entry);
         Ok(())
     }
 }
 
-impl jbk::creator::EntryStoreTrait for EntryStoreCreator {
-    fn finalize(self: Box<Self>, directory_pack: &mut jbk::creator::DirectoryPackCreator) {
+impl jbk::creator::EntryStoreCreatorTrait for EntryStoreCreator {
+    fn finalize(mut self: Box<Self>, directory_pack: &mut jbk::creator::DirectoryPackCreator) {
         let entry_count = self.entry_store.len();
         directory_pack.add_value_store(self.path_store);
         directory_pack.add_value_store(self.mime_store);
-        let entry_store_id = directory_pack.add_entry_store(self.entry_store);
+        self.entry_store
+            .sort_unstable_by(|a, b| a.path.cmp(&b.path));
+        let jbk_entry_store = EntryStore::new(self.schema, self.entry_store.into_iter());
+        let entry_store_id = directory_pack.add_entry_store(jbk_entry_store);
         directory_pack.create_index(
             "waj_entries",
             Default::default(),
             jbk::PropertyIdx::from(0),
             entry_store_id,
             jbk::EntryCount::from(entry_count as u32),
-            jbk::EntryIdx::from(0).into(),
+            jbk::EntryIdx::from(0),
         );
     }
 }
@@ -102,7 +100,7 @@ impl jbk::creator::EntryStoreTrait for EntryStoreCreator {
 mod tests {
     use super::super::*;
     use super::*;
-    use jbk::creator::EntryStoreTrait;
+    use jbk::creator::EntryStoreCreatorTrait;
     use mime_guess::mime;
     use rustest::{test, Result};
 
